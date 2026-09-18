@@ -18,7 +18,7 @@
   };
 
   // Toggle enforcement of track entry/exit blocking. Set to false to allow free entry/exit while debugging.
-  const ENFORCE_TRACK_BOUNDARY = true;
+  const ENFORCE_TRACK_BOUNDARY = false; // set false to allow free entry/exit while debugging
 
   // car state
   const carState = {
