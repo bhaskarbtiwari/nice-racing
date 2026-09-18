@@ -159,25 +159,36 @@
     // Try to load a GLTF model (models/lamborghini.glb) and fall back to a primitive car
     function createPrimitiveCar() {
       const car = new THREE.Group();
-      // body - layered boxes for nicer silhouette
-      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff3333, metalness: 0.3, roughness: 0.4 });
-      const base = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.45, 3.2), bodyMat);
-      base.position.y = 0.45; base.castShadow = true; car.add(base);
-      const cabinMat = new THREE.MeshStandardMaterial({ color: 0x88c0ff, transparent: true, opacity: 0.9, roughness: 0.2 });
-      const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 1.6), cabinMat);
-      cabin.position.set(0, 0.95, -0.05); cabin.castShadow = true; car.add(cabin);
-      // bumpers
-      const bumperMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
-      const front = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.25, 0.25), bumperMat);
-      front.position.set(0, 0.3, 1.6); car.add(front);
-      const back = front.clone(); back.position.set(0, 0.3, -1.6); car.add(back);
-      // headlights (emissive)
-      const lightMat = new THREE.MeshStandardMaterial({ color: 0xffffcc, emissive: 0xffffcc, emissiveIntensity: 0.6 });
-      const lh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.05), lightMat);
-      lh.position.set(-0.5, 0.45, 1.7); car.add(lh);
-      const rh = lh.clone(); rh.position.x = 0.5; car.add(rh);
-      // wheels with simple rims
-      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.2 });
+      // Lamborghini-like primitive: low, wide, angular, yellow paint
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.35, roughness: 0.25 });
+      // low-slung base
+      const base = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.28, 4.2), bodyMat);
+      base.position.y = 0.34; base.castShadow = true; car.add(base);
+      // wedge hood (thin box rotated slightly for slope)
+      const hoodMat = bodyMat;
+      const hood = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.12, 1.6), hoodMat);
+      hood.position.set(0, 0.48, 1.0); hood.rotation.x = -0.18; hood.castShadow = true; car.add(hood);
+      // cabin / windshield - slightly sloped and tinted
+      const cabinMat = new THREE.MeshStandardMaterial({ color: 0x223344, transparent: true, opacity: 0.9, roughness: 0.1 });
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 1.2), cabinMat);
+      cabin.position.set(0, 0.78, -0.6); cabin.rotation.x = -0.12; cabin.castShadow = true; car.add(cabin);
+      // side intakes
+      const intakeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+      const intakeL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.18, 0.8), intakeMat); intakeL.position.set(-1.05, 0.48, -0.2); intakeL.castShadow = true; car.add(intakeL);
+      const intakeR = intakeL.clone(); intakeR.position.x = 1.05; car.add(intakeR);
+      // rear spoiler
+      const spoilerMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7 });
+      const spoiler = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.06, 0.18), spoilerMat);
+      spoiler.position.set(0, 0.62, -1.9); spoiler.castShadow = true; car.add(spoiler);
+      // headlights (emissive) - narrow, aggressive
+      const lightMat = new THREE.MeshStandardMaterial({ color: 0xffffcc, emissive: 0xffffcc, emissiveIntensity: 0.9 });
+      const lh = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.08, 0.06), lightMat);
+      lh.position.set(-0.6, 0.42, 1.95); lh.castShadow = false; car.add(lh);
+      const rh = lh.clone(); rh.position.x = 0.6; car.add(rh);
+      // mark as Lamborghini (primitive)
+      car.userData = car.userData || {}; car.userData.make = 'Lamborghini (primitive)';
+      // wheels with simple rims (continued later)
+      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6 });
       const rimMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.9, roughness: 0.2 });
       const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.4, 20);
       const rimGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.42, 16);
