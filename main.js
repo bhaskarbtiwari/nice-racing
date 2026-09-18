@@ -17,6 +17,9 @@
     gapSize: Math.PI / 8 // size of gap in radians (~22.5 degrees)
   };
 
+  // Toggle enforcement of track entry/exit blocking. Set to false to allow free entry/exit while debugging.
+  const ENFORCE_TRACK_BOUNDARY = true;
+
   // car state
   const carState = {
     speed: 0,
@@ -403,7 +406,10 @@
     const wasOnTrack = (rBefore >= TRACK.innerRadius && rBefore <= TRACK.outerRadius && !isAngleInGap(angleBefore));
     let nowOnTrack = (rAfter >= TRACK.innerRadius && rAfter <= TRACK.outerRadius && !isAngleInGap(angleAfter));
 
-    if (nowOnTrack && !wasOnTrack) {
+    if (!ENFORCE_TRACK_BOUNDARY) {
+      // bypass checks: allow entering/exiting freely during debug
+      carState.onTrack = nowOnTrack;
+    } else if (nowOnTrack && !wasOnTrack) {
       // entering: allow if approach or arrival angle lies within the gap or the midpoint angle crosses the gap
       function midAngle(a, b) {
         // normalize and compute midpoint taking wrap-around into account
@@ -438,6 +444,9 @@
         carState.speed = 0;
         nowOnTrack = false;
       }
+    } else if (!ENFORCE_TRACK_BOUNDARY && !nowOnTrack && wasOnTrack) {
+      // when enforcement disabled, allow exits freely
+      carState.onTrack = nowOnTrack;
     } else if (!nowOnTrack && wasOnTrack) {
       // exiting: allow if exit angle / midpoint or movement direction goes through the gap
       function midAngle(a, b) {
