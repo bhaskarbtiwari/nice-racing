@@ -471,7 +471,16 @@
         nowOnTrack = true;
       }
     }
+    // Apply on-track state and ensure speed / maxSpeed reflect a 3x boost while on track.
+    // If we just entered the track, give a one-time speed boost (x3). Always set maxSpeed accordingly.
+    const justEntered = (nowOnTrack && !wasOnTrack);
     carState.onTrack = nowOnTrack;
+    if (justEntered) {
+      carState.speed = carState.speed * 3;
+    }
+    carState.maxSpeed = carState.onTrack ? carState.baseMaxSpeed * 3 : carState.baseMaxSpeed;
+    // clamp speed to the current max
+    carState.speed = Math.sign(carState.speed) * Math.min(Math.abs(carState.speed), carState.maxSpeed);
 
     // adjust friction based on onTrack
     if (!carState.onTrack) carState.friction = 18; else carState.friction = 8;
