@@ -253,10 +253,10 @@
     }
 
     // Attempt to load GLTF model at models/lamborghini.glb; fall back if loader unavailable or load fails
-    if (!FORCE_PRIMITIVE_CAR && typeof THREE !== 'undefined' && THREE.GLTFLoader) {
+    if (!FORCE_PRIMITIVE_CAR && typeof THREE !== 'undefined' && (THREE.GLTFLoader || window.THREE && window.THREE.GLTFLoader)) {
       try {
-        // Use global THREE.GLTFLoader when available
-        const Loader = THREE.GLTFLoader;
+        // Try GLTFLoader from THREE namespace or global
+        const Loader = (typeof THREE !== 'undefined' && THREE.GLTFLoader) ? THREE.GLTFLoader : (window.GLTFLoader || window.THREE && window.THREE.GLTFLoader);
         const loader = new Loader();
         loader.load('models/lamborghini.glb', (gltf) => {
           const root = new THREE.Group();

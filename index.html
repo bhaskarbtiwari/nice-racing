@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>3D Car Driving Demo</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="ui">
+      <h1>3D Car Driving Demo</h1>
+      <p>W/S or ↑/↓: accelerate / brake &nbsp; A/D or ←/→: steer &nbsp; Space: handbrake</p>
+      <p>Speed: <span id="speed">0</span> m/s &nbsp; <button id="resetBtn">Reset</button></p>
+      <p>Pos: <span id="pos">0,0,0</span> &nbsp; OnTrack: <span id="onTrack">false</span></p>
+      <canvas id="speedometer" width="160" height="160" aria-label="speedometer"></canvas>
+    </div>
+    <div id="canvas-container"></div>
+
+    <!-- Three.js from CDN -->
+    <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+    <!-- GLTFLoader for loading GLB models -->
+    <script src="https://unpkg.com/three@0.158.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>
