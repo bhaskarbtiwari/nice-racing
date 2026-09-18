@@ -47,14 +47,20 @@
     renderer.setPixelRatio(window.devicePixelRatio || 1);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // improved color & tonemapping for more realistic lighting
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.physicallyCorrectLights = true;
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
   }
 
   function createScene() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
-    scene.fog = new THREE.Fog(0x87ceeb, 80, 350);
+    // subtle HDR-like sky color
+    scene.background = new THREE.Color(0x9ecff3);
+    scene.fog = new THREE.FogExp2(0x9ecff3, 0.0025);
   }
 
   function createCamera() {
@@ -63,27 +69,46 @@
   }
 
   function createLights() {
-    const amb = new THREE.AmbientLight(0xffffff, 0.35);
+    // hemisphere light for soft sky/ground lighting
+    const hemi = new THREE.HemisphereLight(0x87ceeb, 0x444444, 0.6);
+    scene.add(hemi);
+
+    // ambient subtle fill
+    const amb = new THREE.AmbientLight(0xffffff, 0.08);
     scene.add(amb);
 
-    const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+    // stronger sun light for crisp shadows
+    const sun = new THREE.DirectionalLight(0xffffff, 1.2);
     sun.position.set(30, 80, 50);
     sun.castShadow = true;
     sun.shadow.camera.near = 1;
     sun.shadow.camera.far = 300;
     sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0005;
     scene.add(sun);
+
+    // soft contact shadows under car using a simple blob texture (if available) - generate a canvas texture
+    const shadowCanvas = document.createElement('canvas'); shadowCanvas.width = 128; shadowCanvas.height = 128;
+    const sc = shadowCanvas.getContext('2d');
+    sc.fillStyle = 'rgba(0,0,0,0)'; sc.fillRect(0,0,128,128);
+    const g = sc.createRadialGradient(64,64,10,64,64,64); g.addColorStop(0,'rgba(0,0,0,0.6)'); g.addColorStop(1,'rgba(0,0,0,0)'); sc.fillStyle = g; sc.fillRect(0,0,128,128);
+    const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+    shadowTex.wrapS = shadowTex.wrapT = THREE.ClampToEdgeWrapping;
+    // store for use by car underlay
+    window._CAR_DEMO.contactShadow = shadowTex;
   }
 
   function createGround() {
-    const mat = new THREE.MeshStandardMaterial({ color: 0x6aa84f, roughness: 1 });
+    // ground with roughness map like material for more variance
+    const mat = new THREE.MeshStandardMaterial({ color: 0x6aa84f, roughness: 0.9, metalness: 0.01 });
     const g = new THREE.Mesh(new THREE.PlaneGeometry(WORLD_SIZE * 4, WORLD_SIZE * 4), mat);
     g.rotation.x = -Math.PI / 2;
     g.receiveShadow = true;
     scene.add(g);
 
-    const grid = new THREE.GridHelper(WORLD_SIZE * 4, 80, 0x444444, 0x2f2f2f);
-    grid.position.y = 0.01;
+    // subtle detail lines for reference
+    const grid = new THREE.GridHelper(WORLD_SIZE * 4, 80, 0x333333, 0x2a2a2a);
+    grid.position.y = 0.01; grid.material.opacity = 0.6; grid.material.transparent = true;
     scene.add(grid);
   }
 
@@ -211,6 +236,13 @@
       const gapAng = TRACK.gapCenterAngle;
       const startR = TRACK.outerRadius + 6;
       car.position.set(Math.cos(gapAng) * startR, 0, Math.sin(gapAng) * startR);
+      // contact shadow under car
+      if (window._CAR_DEMO && window._CAR_DEMO.contactShadow) {
+        const shadowMat = new THREE.MeshBasicMaterial({ map: window._CAR_DEMO.contactShadow, transparent: true, depthWrite: false });
+        const sh = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.6), shadowMat);
+        sh.rotation.x = -Math.PI/2; sh.position.set(0, 0.01, 0); sh.renderOrder = 1; car.add(sh);
+        car.userData.contactShadow = sh;
+      }
       scene.add(car);
       // store references for runtime visual updates
       car.userData = car.userData || {};
