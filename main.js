@@ -11,8 +11,9 @@
   // Track area: circular ring (annulus) with a single gap (entry/exit)
   // Make track roughly ~1.2km circumference: radius ~190-195 => circumference ~1200m
   const TRACK = {
-    innerRadius: 190,
-    outerRadius: 200,
+    // Reduced track size for tighter driving area
+    innerRadius: 95,
+    outerRadius: 105,
     gapCenterAngle: Math.PI / 2, // radians, 0 = +X, PI/2 = +Z
     gapSize: Math.PI / 8 // size of gap in radians (~22.5 degrees)
   };
