@@ -180,6 +180,15 @@
       const spoilerMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7 });
       const spoiler = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.06, 0.18), spoilerMat);
       spoiler.position.set(0, 0.62, -1.9); spoiler.castShadow = true; car.add(spoiler);
+      // rear brake lights (emissive)
+      const rearLightMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x000000, emissiveIntensity: 0.0 });
+      const rearL = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.06), rearLightMat);
+      rearL.position.set(-0.5, 0.46, -2.05); rearL.castShadow = false; car.add(rearL);
+      const rearR = rearL.clone(); rearR.position.x = 0.5; car.add(rearR);
+      // underglow neon (emissive plane under car)
+      const underMat = new THREE.MeshStandardMaterial({ color: 0x00ffd0, emissive: 0x00ffd0, emissiveIntensity: 0.0, transparent: true, opacity: 0.6, roughness: 1 });
+      const under = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.6), underMat);
+      under.rotation.x = -Math.PI/2; under.position.set(0, 0.05, 0); under.receiveShadow = false; under.renderOrder = 2; car.add(under);
       // headlights (emissive) - narrow, aggressive
       const lightMat = new THREE.MeshStandardMaterial({ color: 0xffffcc, emissive: 0xffffcc, emissiveIntensity: 0.9 });
       const lh = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.08, 0.06), lightMat);
@@ -203,6 +212,11 @@
       const startR = TRACK.outerRadius + 6;
       car.position.set(Math.cos(gapAng) * startR, 0, Math.sin(gapAng) * startR);
       scene.add(car);
+      // store references for runtime visual updates
+      car.userData = car.userData || {};
+      car.userData.make = 'Lamborghini (primitive)';
+      car.userData.rearLights = [rearL, rearR];
+      car.userData.underglow = under;
       window._CAR_DEMO.car = { obj: car, wheels: wheels };
     }
 
@@ -513,6 +527,22 @@
 
     // rotate wheels
     if (c.wheels && c.wheels.forEach) c.wheels.forEach(w => { w.rotation.x += carState.speed * dt * 0.8; });
+
+    // runtime visual effects: rear lights and underglow intensity based on speed/brake
+    if (c.obj && c.obj.userData) {
+      const ud = c.obj.userData;
+      if (ud.rearLights && ud.rearLights.forEach) {
+        // make rear lights bright when braking or when handbrake is active
+        const brakeIntensity = (controls.backward || controls.handbrake || carState.speed < 0) ? 1.0 : 0.0;
+        ud.rearLights.forEach(l => { if (l.material) l.material.emissiveIntensity = brakeIntensity * 1.2; });
+      }
+      if (ud.underglow && ud.underglow.material) {
+        // undeglow intensity scales with absolute speed
+        const intensity = Math.min(1.0, Math.abs(carState.speed) / (carState.baseMaxSpeed * 2));
+        ud.underglow.material.emissiveIntensity = intensity * 0.8;
+        ud.underglow.material.opacity = 0.3 + intensity * 0.7;
+      }
+    }
 
     // camera follow
     const desiredOffset = new THREE.Vector3(0, 4.2, -9.0);
