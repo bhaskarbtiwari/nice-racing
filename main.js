@@ -376,6 +376,8 @@
           'ToyCar': 'models/ToyCar.glb',
           'CarbonFibre': 'models/CarbonFibre.glb'
         };
+        // add user-provided GTR model if present
+        try { if (require) { const fs = require('fs'); if (fs.existsSync('models/GTR_R35.glb')) map['GTR_R35'] = 'models/GTR_R35.glb'; } } catch (e) { /* ignore in browser */ }
         const url = map[name] || name;
         if (!url) {
           // create primitive
