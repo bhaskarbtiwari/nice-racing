@@ -16,13 +16,20 @@
     </div>
     <div id="canvas-container"></div>
 
-    <!-- Load Three.js and GLTFLoader as ES modules and expose to global scope for main.js -->
+    <!-- Import map to resolve bare specifier 'three' used by JSM examples -> points to unpkg module build -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.158.0/build/three.module.js"
+        }
+      }
+    </script>
+    <!-- Load Three.js + GLTFLoader as modules and expose to global scope for main.js -->
     <script type="module">
-      import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+      import * as THREE from 'three';
       import { GLTFLoader } from 'https://unpkg.com/three@0.158.0/examples/jsm/loaders/GLTFLoader.js';
       // expose to non-module scripts
       window.THREE = THREE;
-      // GLTFLoader uses the module THREE, but expose constructor for compatibility
       window.GLTFLoader = GLTFLoader;
     </script>
     <script src="main.js"></script>
