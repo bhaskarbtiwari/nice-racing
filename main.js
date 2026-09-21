@@ -48,10 +48,12 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     // improved color & tonemapping for more realistic lighting
-    renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    // follow r155+ API changes: outputEncoding replaced by outputColorSpace
+    if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace || 'srgb';
+    if ('toneMapping' in renderer) renderer.toneMapping = THREE.ACESFilmicToneMapping || THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
-    renderer.physicallyCorrectLights = true;
+    // useLegacyLights replaces physicallyCorrectLights
+    if ('useLegacyLights' in renderer) renderer.useLegacyLights = false;
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
   }
