@@ -369,8 +369,12 @@
       window._CAR_DEMO.loadModel = async function(name) {
         const map = {
           'primitive': null,
-          'vc': 'models/lamborghini.glb',
-          // add other entries here later
+          'VC': 'models/VC.glb',
+          'Buggy': 'models/Buggy.glb',
+          'CesiumMilkTruck': 'models/CesiumMilkTruck.glb',
+          'ClearCoatCarPaint': 'models/ClearCoatCarPaint.glb',
+          'ToyCar': 'models/ToyCar.glb',
+          'CarbonFibre': 'models/CarbonFibre.glb'
         };
         const url = map[name] || name;
         if (!url) {
