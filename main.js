@@ -21,7 +21,8 @@
   };
 
   // Toggle enforcement of track entry/exit blocking. Set to false to allow free entry/exit while debugging.
-  const ENFORCE_TRACK_BOUNDARY = true; // restore enforcement by default
+  // User requested removing blocking behavior so default to false here.
+  const ENFORCE_TRACK_BOUNDARY = false;
 
   // car state
   const carState = {
@@ -292,7 +293,7 @@
       window._CAR_DEMO.car = { obj: car, wheels: wheels };
     }
 
-    // Attempt to load GLTF model at models/lamborghini.glb; fall back if loader unavailable or load fails
+    // Attempt to load GLTF models; provide API window._CAR_DEMO.loadModel(name)
     if (!FORCE_PRIMITIVE_CAR) {
       // loader logic extracted to function to allow dynamic script injection if needed
       function loadModelWithLoader(LoaderCtor) {
@@ -361,19 +362,56 @@
       // ensure a GLTFLoader is available; if not, try to inject the script then load
       const tryUseLoader = () => {
         const LoaderCtor = (typeof THREE !== 'undefined' && THREE.GLTFLoader) ? THREE.GLTFLoader : (window.GLTFLoader || (window.THREE && window.THREE.GLTFLoader));
-        if (LoaderCtor) { loadModelWithLoader(LoaderCtor); return true; }
-        return false;
+        return LoaderCtor;
       };
 
-      if (!tryUseLoader()) {
-        // inject GLTFLoader script dynamically and attempt load on onload
-        const url = 'https://unpkg.com/three@0.158.0/examples/js/loaders/GLTFLoader.js';
-        const s = document.createElement('script'); s.src = url; s.onload = () => { if (!tryUseLoader()) { console.warn('GLTFLoader still unavailable after injection'); createPrimitiveCar(); } }; s.onerror = () => { console.warn('Failed to load GLTFLoader script, falling back'); createPrimitiveCar(); };
-        document.head.appendChild(s);
+      // Expose loader API to allow dynamic model loading from UI
+      window._CAR_DEMO.loadModel = async function(name) {
+        const map = {
+          'primitive': null,
+          'vc': 'models/lamborghini.glb',
+          // add other entries here later
+        };
+        const url = map[name] || name;
+        if (!url) {
+          // create primitive
+          createPrimitiveCar();
+          return;
+        }
+        const LoaderCtor = tryUseLoader();
+        if (!LoaderCtor) {
+          // try to inject
+          const scriptUrl = 'https://unpkg.com/three@0.158.0/examples/jsm/loaders/GLTFLoader.js';
+          await new Promise((res, rej) => {
+            const s = document.createElement('script'); s.type = 'module'; s.src = scriptUrl; s.onload = res; s.onerror = rej; document.head.appendChild(s);
+          }).catch(() => {});
+        }
+        const FinalLoader = (typeof THREE !== 'undefined' && THREE.GLTFLoader) ? THREE.GLTFLoader : (window.GLTFLoader || window.THREE && window.THREE.GLTFLoader);
+        if (!FinalLoader) { console.warn('GLTFLoader unavailable, falling back to primitive'); createPrimitiveCar(); return; }
+        // clear previous car
+        if (window._CAR_DEMO.car && window._CAR_DEMO.car.obj) { scene.remove(window._CAR_DEMO.car.obj); window._CAR_DEMO.car = null; }
+        const loader = new FinalLoader();
         modelLoadStarted = true;
-        // return here; actual createPrimitiveCar or model creation will happen in callbacks
-        return;
-      }
+        loader.load(url, (gltf) => {
+          const root = new THREE.Group();
+          const model = gltf.scene || (gltf.scenes && gltf.scenes[0]) || gltf;
+          const bbox = new THREE.Box3().setFromObject(model);
+          const size = bbox.getSize(new THREE.Vector3());
+          const center = bbox.getCenter(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z) || 1;
+          const target = 4.0;
+          const scaleFactor = target / maxDim;
+          model.scale.setScalar(scaleFactor);
+          model.position.sub(center.multiplyScalar(scaleFactor));
+          model.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; if (n.material) { n.material.side = (THREE && THREE.DoubleSide) || 2; n.material.needsUpdate = true; } } });
+          root.add(model);
+          const gapAng = TRACK.gapCenterAngle; const startR = TRACK.outerRadius + 6;
+          root.position.set(Math.cos(gapAng) * startR, 0, Math.sin(gapAng) * startR);
+          scene.add(root);
+          window._CAR_DEMO.car = { obj: root, wheels: [] };
+          console.log('Loaded model', url, 'scaled by', scaleFactor);
+        }, undefined, (err) => { console.warn('GLTF load failed, falling back to primitive car:', err); createPrimitiveCar(); });
+      };
     }
     // if loader not available and no async load started, use primitive
     if (!modelLoadStarted) createPrimitiveCar();

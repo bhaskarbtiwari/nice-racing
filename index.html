@@ -12,6 +12,12 @@
     <div id="ui">
       <h1>3D Car Driving Demo</h1>
       <p>W/S or ↑/↓: accelerate / brake &nbsp; A/D or ←/→: steer &nbsp; Space: handbrake</p>
+      <label for="carSelect">Choose car:</label>
+      <select id="carSelect">
+        <option value="primitive">Primitive Lambo</option>
+        <option value="vc">Sample VC car</option>
+      </select>
+      <button id="loadCarBtn">Load selected car</button>
       <p>Speed: <span id="speed">0</span> m/s &nbsp; <button id="resetBtn">Reset</button></p>
       <p>Pos: <span id="pos">0,0,0</span> &nbsp; OnTrack: <span id="onTrack">false</span></p>
       <canvas id="speedometer" width="160" height="160" aria-label="speedometer"></canvas>
@@ -35,5 +41,20 @@
       window.GLTFLoader = GLTFLoader;
     </script>
     <script src="main.js"></script>
+    <script>
+      // loadCarBtn behavior: tells main.js to load a specific model via window._CAR_DEMO API
+      document.addEventListener('DOMContentLoaded', function() {
+        const sel = document.getElementById('carSelect');
+        const btn = document.getElementById('loadCarBtn');
+        btn.addEventListener('click', () => {
+          const v = sel.value;
+          if (window._CAR_DEMO && window._CAR_DEMO.loadModel) {
+            window._CAR_DEMO.loadModel(v);
+          } else {
+            alert('Loader not ready yet');
+          }
+        });
+      });
+    </script>
   </body>
 </html>
