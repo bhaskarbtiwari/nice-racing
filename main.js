@@ -521,6 +521,17 @@
         if (diff < -Math.PI) diff += Math.PI * 2;
         return normalizeAngle(na + diff * 0.5);
       }
+      // sample along the movement segment to see if any intermediate point crosses the gap
+      function crossesGap(posA, posB, steps = 8) {
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const x = posA.x + (posB.x - posA.x) * t;
+          const z = posA.z + (posB.z - posA.z) * t;
+          const ang = Math.atan2(z, x);
+          if (isAngleInGap(ang)) return true;
+        }
+        return false;
+      }
       const angleMid = midAngle(angleBefore, angleAfter);
       const moveAngle = Math.atan2(move.z, move.x);
       // allow radial approaches that head toward the gap even if exact angles don't report inside-gap
@@ -531,7 +542,7 @@
       const forwardDir = forwardVec.clone().normalize();
       const forwardToCenterDot = forwardDir.dot(toCenter);
       const radialApproach = forwardToCenterDot > 0.6 && angDist(angleBefore, TRACK.gapCenterAngle) <= (TRACK.gapSize/2 + 0.4);
-      if (isAngleInGap(angleBefore) || isAngleInGap(angleAfter) || isAngleInGap(angleMid) || isAngleInGap(moveAngle) || nearGap || radialApproach) {
+      if (isAngleInGap(angleBefore) || isAngleInGap(angleAfter) || isAngleInGap(angleMid) || isAngleInGap(moveAngle) || nearGap || radialApproach || crossesGap(posBefore, posAfter, 12)) {
         carState.onTrack = true; carState.maxSpeed = carState.baseMaxSpeed * 3; carState.speed = carState.speed * 3;
         nowOnTrack = true;
       } else {
@@ -560,7 +571,7 @@
       }
       const angleMidExit = midAngle(angleBefore, angleAfter);
       const moveAngle = Math.atan2(move.z, move.x);
-      if (isAngleInGap(angleAfter) || isAngleInGap(angleMidExit) || isAngleInGap(moveAngle)) {
+      if (isAngleInGap(angleAfter) || isAngleInGap(angleMidExit) || isAngleInGap(moveAngle) || crossesGap(posBefore, posAfter, 12)) {
         carState.onTrack = false; carState.maxSpeed = carState.baseMaxSpeed;
         carState.speed = Math.sign(carState.speed) * Math.min(Math.abs(carState.speed), carState.maxSpeed);
         nowOnTrack = false;
