@@ -34,8 +34,8 @@
     onTrack: false
   };
 
-  // Force primitive car (skip GLTF) if true - helpful for debugging and if model not present
-  const FORCE_PRIMITIVE_CAR = true;
+  // Force primitive car (skip GLTF) if true - set to false to load models/lamborghini.glb when available
+  const FORCE_PRIMITIVE_CAR = false;
 
   const controls = { forward: false, backward: false, left: false, right: false, handbrake: false };
 
