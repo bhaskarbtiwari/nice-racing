@@ -195,9 +195,18 @@
     const start = normalizeAngle(TRACK.gapCenterAngle - gap / 2);
     const end = normalizeAngle(start + gap);
     const a = normalizeAngle(angle);
+    // handle normal case
     if (start < end) return a >= start && a <= end;
     // wrap-around
     return a >= start || a <= end;
+  }
+
+  // helper to compute shortest angular distance (absolute) between two angles
+  function angleDistance(a, b) {
+    const na = normalizeAngle(a); const nb = normalizeAngle(b);
+    let d = Math.abs(na - nb);
+    if (d > Math.PI) d = Math.PI * 2 - d;
+    return d;
   }
 
   function isCarOnTrackPos(pos) {
@@ -264,6 +273,9 @@
       const gapAng = TRACK.gapCenterAngle;
       const startR = TRACK.outerRadius + 6;
       car.position.set(Math.cos(gapAng) * startR, 0, Math.sin(gapAng) * startR);
+      // orient to face center of gap
+      const dirX = -car.position.x, dirZ = -car.position.z;
+      car.rotation.y = Math.atan2(dirX, dirZ);
       // contact shadow under car
       if (window._CAR_DEMO && window._CAR_DEMO.contactShadow) {
         const shadowMat = new THREE.MeshBasicMaterial({ map: window._CAR_DEMO.contactShadow, transparent: true, depthWrite: false });
@@ -295,14 +307,30 @@
             const size = bbox.getSize(new THREE.Vector3());
             const center = bbox.getCenter(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z) || 1;
-            // target approximate length of model in world units
-            const target = 3.0;
+            // target approximate length of model in world units (bumped for better visibility)
+            const target = 4.0;
             const scaleFactor = target / maxDim;
             // apply scale
             model.scale.setScalar(scaleFactor);
             // after scaling, shift model so its center is at origin
             model.position.sub(center.multiplyScalar(scaleFactor));
-            model.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
+            model.traverse((n) => {
+              if (n.isMesh) {
+                n.castShadow = true; n.receiveShadow = true;
+                // ensure materials are visible from all sides and update
+                if (n.material) {
+                  n.material.side = (THREE && THREE.DoubleSide) || 2;
+                  n.material.needsUpdate = true;
+                }
+              }
+            });
+            // add a bounding box helper so the model is visible during debug
+            try {
+              const bbox2 = new THREE.Box3().setFromObject(model);
+              const helper = new THREE.Box3Helper(bbox2, 0x00ff00);
+              helper.material.linewidth = 2;
+              root.add(helper);
+            } catch (e) { /* ignore helper errors */ }
             root.add(model);
             // place near gap
             const gapAng = TRACK.gapCenterAngle; const startR = TRACK.outerRadius + 6;
@@ -536,7 +564,7 @@
       const moveAngle = Math.atan2(move.z, move.x);
       // allow radial approaches that head toward the gap even if exact angles don't report inside-gap
       function angDist(a,b){ const na=normalizeAngle(a), nb=normalizeAngle(b); let d=Math.abs(na-nb); if(d>Math.PI) d = Math.PI*2-d; return d; }
-      const nearGap = angDist(angleMid, TRACK.gapCenterAngle) <= (TRACK.gapSize/2 + 0.15);
+      const nearGap = angDist(angleMid, TRACK.gapCenterAngle) <= (TRACK.gapSize/2 + 0.35);
       // allow when car forward vector points toward track center and approach is generally aligned with gap
       const toCenter = new THREE.Vector3(-posAfter.x, 0, -posAfter.z).normalize();
       const forwardDir = forwardVec.clone().normalize();
