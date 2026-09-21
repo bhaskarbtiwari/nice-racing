@@ -14,6 +14,8 @@
     // Reduced track size for tighter driving area
     innerRadius: 95,
     outerRadius: 105,
+    // outer soft boundary (beyond outerRadius) where car is slowed but still allowed
+    boundaryOuter: 117,
     gapCenterAngle: Math.PI / 2, // radians, 0 = +X, PI/2 = +Z
     gapSize: Math.PI / 8 // size of gap in radians (~22.5 degrees)
   };
@@ -57,6 +59,9 @@
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
   }
+
+    // track whether an async model load was started; if so don't create the primitive immediately
+    let modelLoadStarted = false;
 
   function createScene() {
     scene = new THREE.Scene();
@@ -121,6 +126,7 @@
     const trackMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.6, metalness: 0.1 });
     const inner = TRACK.innerRadius;
     const outer = TRACK.outerRadius;
+    const boundaryOuter = TRACK.boundaryOuter || (outer + 12);
     const gap = TRACK.gapSize;
     const gapStart = TRACK.gapCenterAngle - gap / 2;
     const thetaStart = gapStart + gap; // start angle after gap
@@ -133,12 +139,25 @@
     track.receiveShadow = true;
     scene.add(track);
 
-    // centerline (optional): draw center stripe on arc segments (approx by another ring slightly above)
+    // visible soft boundary ring outside the track to indicate slowdown region
+    const boundaryMat = new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.9, metalness: 0.0, transparent: true, opacity: 0.25 });
+    const softRingGeo = new THREE.RingGeometry(outer, boundaryOuter, segments, 1, thetaStart, thetaLength);
+    const softRing = new THREE.Mesh(softRingGeo, boundaryMat);
+    softRing.rotation.x = -Math.PI/2; softRing.position.y = 0.021; scene.add(softRing);
+
+    // centerline: draw center stripe on arc segments (approx by another ring slightly above)
     const stripeMat = new THREE.MeshStandardMaterial({ color: 0xfff1a8, emissive: 0x333300 });
     const mid = (inner + outer) / 2;
     const stripeGeo = new THREE.RingGeometry(mid - 0.15, mid + 0.15, segments, 1, thetaStart, thetaLength);
     const stripe = new THREE.Mesh(stripeGeo, stripeMat);
     stripe.rotation.x = -Math.PI / 2; stripe.position.y = 0.03; scene.add(stripe);
+
+    // visible boundary lines for inner and outer radius
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const innerLineGeo = new THREE.RingGeometry(inner - 0.02, inner + 0.02, segments, 1, thetaStart, thetaLength);
+    const innerLine = new THREE.Mesh(innerLineGeo, lineMat); innerLine.rotation.x = -Math.PI/2; innerLine.position.y = 0.031; scene.add(innerLine);
+    const outerLineGeo = new THREE.RingGeometry(outer - 0.02, outer + 0.02, segments, 1, thetaStart, thetaLength);
+    const outerLine = new THREE.Mesh(outerLineGeo, lineMat); outerLine.rotation.x = -Math.PI/2; outerLine.position.y = 0.031; scene.add(outerLine);
   }
 
   function createEnvironment() {
@@ -263,6 +282,7 @@
       function loadModelWithLoader(LoaderCtor) {
         try {
           const loader = new LoaderCtor();
+          modelLoadStarted = true;
           loader.load('models/lamborghini.glb', (gltf) => {
             const root = new THREE.Group();
             const model = gltf.scene || (gltf.scenes && gltf.scenes[0]) || gltf;
@@ -318,12 +338,13 @@
         const url = 'https://unpkg.com/three@0.158.0/examples/js/loaders/GLTFLoader.js';
         const s = document.createElement('script'); s.src = url; s.onload = () => { if (!tryUseLoader()) { console.warn('GLTFLoader still unavailable after injection'); createPrimitiveCar(); } }; s.onerror = () => { console.warn('Failed to load GLTFLoader script, falling back'); createPrimitiveCar(); };
         document.head.appendChild(s);
+        modelLoadStarted = true;
         // return here; actual createPrimitiveCar or model creation will happen in callbacks
         return;
       }
     }
-    // if loader not available or force primitive, use primitive
-    createPrimitiveCar();
+    // if loader not available and no async load started, use primitive
+    if (!modelLoadStarted) createPrimitiveCar();
   }
 
   // input: arrow keys always map Up=forward, Down=backward, Left=steer left, Right=steer right
@@ -560,6 +581,16 @@
 
     // adjust friction based on onTrack
     if (!carState.onTrack) carState.friction = 18; else carState.friction = 8;
+
+    // Soft slowdown when outside outerRadius but inside boundaryOuter
+    const inSlowZone = (rAfter > TRACK.outerRadius && rAfter <= (TRACK.boundaryOuter || TRACK.outerRadius + 12));
+    if (inSlowZone) {
+      // apply additional drag proportional to how far into the slow zone
+      const zoneWidth = (TRACK.boundaryOuter || TRACK.outerRadius + 12) - TRACK.outerRadius;
+      const depth = Math.max(0, Math.min(1, (rAfter - TRACK.outerRadius) / zoneWidth));
+      // scale speed toward half speed at outer edge
+      carState.speed *= (1 - 0.5 * depth * Math.min(1, Math.abs(carState.speed) / Math.max(1, carState.baseMaxSpeed)));
+    }
 
     // handbrake: when active, quickly reduce speed to zero and increase friction
     if (controls.handbrake) {
