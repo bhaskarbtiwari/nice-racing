@@ -141,7 +141,8 @@
 
     // visible soft boundary ring outside the track to indicate slowdown region
     const boundaryMat = new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.9, metalness: 0.0, transparent: true, opacity: 0.25 });
-    const softRingGeo = new THREE.RingGeometry(outer, boundaryOuter, segments, 1, thetaStart, thetaLength);
+    // draw full soft ring so boundary is visible all around
+    const softRingGeo = new THREE.RingGeometry(outer, boundaryOuter, segments);
     const softRing = new THREE.Mesh(softRingGeo, boundaryMat);
     softRing.rotation.x = -Math.PI/2; softRing.position.y = 0.021; scene.add(softRing);
 
@@ -154,9 +155,10 @@
 
     // visible boundary lines for inner and outer radius
     const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const innerLineGeo = new THREE.RingGeometry(inner - 0.02, inner + 0.02, segments, 1, thetaStart, thetaLength);
+    // draw full inner/outer boundary lines (show entire circle boundaries)
+    const innerLineGeo = new THREE.RingGeometry(inner - 0.02, inner + 0.02, segments);
     const innerLine = new THREE.Mesh(innerLineGeo, lineMat); innerLine.rotation.x = -Math.PI/2; innerLine.position.y = 0.031; scene.add(innerLine);
-    const outerLineGeo = new THREE.RingGeometry(outer - 0.02, outer + 0.02, segments, 1, thetaStart, thetaLength);
+    const outerLineGeo = new THREE.RingGeometry(outer - 0.02, outer + 0.02, segments);
     const outerLine = new THREE.Mesh(outerLineGeo, lineMat); outerLine.rotation.x = -Math.PI/2; outerLine.position.y = 0.031; scene.add(outerLine);
   }
 
