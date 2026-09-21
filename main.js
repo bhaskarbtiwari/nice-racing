@@ -19,7 +19,7 @@
   };
 
   // Toggle enforcement of track entry/exit blocking. Set to false to allow free entry/exit while debugging.
-  const ENFORCE_TRACK_BOUNDARY = false; // set false to allow free entry/exit while debugging
+  const ENFORCE_TRACK_BOUNDARY = true; // restore enforcement by default
 
   // car state
   const carState = {
@@ -90,12 +90,15 @@
     scene.add(sun);
 
     // soft contact shadows under car using a simple blob texture (if available) - generate a canvas texture
-    const shadowCanvas = document.createElement('canvas'); shadowCanvas.width = 128; shadowCanvas.height = 128;
+    const shadowCanvas = document.createElement('canvas'); shadowCanvas.width = 256; shadowCanvas.height = 256;
     const sc = shadowCanvas.getContext('2d');
-    sc.fillStyle = 'rgba(0,0,0,0)'; sc.fillRect(0,0,128,128);
-    const g = sc.createRadialGradient(64,64,10,64,64,64); g.addColorStop(0,'rgba(0,0,0,0.6)'); g.addColorStop(1,'rgba(0,0,0,0)'); sc.fillStyle = g; sc.fillRect(0,0,128,128);
+    sc.clearRect(0,0,256,256);
+    const g = sc.createRadialGradient(128,128,20,128,128,128);
+    g.addColorStop(0,'rgba(0,0,0,0.65)'); g.addColorStop(0.5,'rgba(0,0,0,0.22)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    sc.fillStyle = g; sc.fillRect(0,0,256,256);
     const shadowTex = new THREE.CanvasTexture(shadowCanvas);
     shadowTex.wrapS = shadowTex.wrapT = THREE.ClampToEdgeWrapping;
+    shadowTex.encoding = THREE.sRGBEncoding || shadowTex.encoding;
     // store for use by car underlay
     window._CAR_DEMO.contactShadow = shadowTex;
   }
@@ -280,9 +283,7 @@
             // place near gap
             const gapAng = TRACK.gapCenterAngle; const startR = TRACK.outerRadius + 6;
             root.position.set(Math.cos(gapAng) * startR, 0, Math.sin(gapAng) * startR);
-            // add axes helper to visualize orientation
-            const axes = new THREE.AxesHelper(Math.max(target, 2.5));
-            root.add(axes);
+    // remove debug axes helper (clean up final scene)
             scene.add(root);
             window._CAR_DEMO.car = { obj: root, wheels: [] };
             // position camera to focus the model
@@ -568,6 +569,7 @@
 
     // clamp world bounds
     const margin = 1.0;
+    // noop placeholder: grouping commit, no functional change
     const minX = -WORLD_SIZE + margin, maxX = WORLD_SIZE - margin, minZ = -WORLD_SIZE + margin, maxZ = WORLD_SIZE - margin;
     const clampedX = Math.max(minX, Math.min(maxX, c.obj.position.x));
     const clampedZ = Math.max(minZ, Math.min(maxZ, c.obj.position.z));
