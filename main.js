@@ -253,57 +253,72 @@
     }
 
     // Attempt to load GLTF model at models/lamborghini.glb; fall back if loader unavailable or load fails
-    if (!FORCE_PRIMITIVE_CAR && typeof THREE !== 'undefined' && (THREE.GLTFLoader || window.THREE && window.THREE.GLTFLoader)) {
-      try {
-        // Try GLTFLoader from THREE namespace or global
-        const Loader = (typeof THREE !== 'undefined' && THREE.GLTFLoader) ? THREE.GLTFLoader : (window.GLTFLoader || window.THREE && window.THREE.GLTFLoader);
-        const loader = new Loader();
-        loader.load('models/lamborghini.glb', (gltf) => {
-          const root = new THREE.Group();
-          const model = gltf.scene || (gltf.scenes && gltf.scenes[0]) || gltf;
-          // compute bounding box to determine scale and center
-          const bbox = new THREE.Box3().setFromObject(model);
-          const size = bbox.getSize(new THREE.Vector3());
-          const center = bbox.getCenter(new THREE.Vector3());
-          const maxDim = Math.max(size.x, size.y, size.z) || 1;
-          // target approximate length of model in world units
-          const target = 3.0;
-          const scaleFactor = target / maxDim;
-          // apply scale
-          model.scale.setScalar(scaleFactor);
-          // after scaling, shift model so its center is at origin
-          model.position.sub(center.multiplyScalar(scaleFactor));
-          model.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
-          root.add(model);
-          // place near gap
-          const gapAng = TRACK.gapCenterAngle; const startR = TRACK.outerRadius + 6;
-          root.position.set(Math.cos(gapAng) * startR, 0, Math.sin(gapAng) * startR);
-          // add axes helper to visualize orientation
-          const axes = new THREE.AxesHelper(Math.max(target, 2.5));
-          root.add(axes);
-          scene.add(root);
-          window._CAR_DEMO.car = { obj: root, wheels: [] };
-          // position camera to focus the model
-          if (camera) {
-            const scaledHeight = Math.max(size.y * scaleFactor, 1.8);
-            const scaledDepth = Math.max(size.z * scaleFactor, 3.6);
-            const camOffset = new THREE.Vector3(0, scaledHeight * 1.2 + 1.5, -scaledDepth * 1.4);
-            const worldCamPos = root.position.clone().add(camOffset.applyAxisAngle(new THREE.Vector3(0,1,0), root.rotation.y));
-            camera.position.copy(worldCamPos);
-            camera.lookAt(root.position.clone().add(new THREE.Vector3(0, scaledHeight * 0.5, 0)));
-          }
-          console.log('Loaded model models/lamborghini.glb, scaled by', scaleFactor);
-        }, undefined, (err) => {
-          console.warn('GLTF load failed, falling back to primitive car:', err);
-          createPrimitiveCar();
-        });
-        return;
+    if (!FORCE_PRIMITIVE_CAR) {
+      // loader logic extracted to function to allow dynamic script injection if needed
+      function loadModelWithLoader(LoaderCtor) {
+        try {
+          const loader = new LoaderCtor();
+          loader.load('models/lamborghini.glb', (gltf) => {
+            const root = new THREE.Group();
+            const model = gltf.scene || (gltf.scenes && gltf.scenes[0]) || gltf;
+            // compute bounding box to determine scale and center
+            const bbox = new THREE.Box3().setFromObject(model);
+            const size = bbox.getSize(new THREE.Vector3());
+            const center = bbox.getCenter(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z) || 1;
+            // target approximate length of model in world units
+            const target = 3.0;
+            const scaleFactor = target / maxDim;
+            // apply scale
+            model.scale.setScalar(scaleFactor);
+            // after scaling, shift model so its center is at origin
+            model.position.sub(center.multiplyScalar(scaleFactor));
+            model.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
+            root.add(model);
+            // place near gap
+            const gapAng = TRACK.gapCenterAngle; const startR = TRACK.outerRadius + 6;
+            root.position.set(Math.cos(gapAng) * startR, 0, Math.sin(gapAng) * startR);
+            // add axes helper to visualize orientation
+            const axes = new THREE.AxesHelper(Math.max(target, 2.5));
+            root.add(axes);
+            scene.add(root);
+            window._CAR_DEMO.car = { obj: root, wheels: [] };
+            // position camera to focus the model
+            if (camera) {
+              const scaledHeight = Math.max(size.y * scaleFactor, 1.8);
+              const scaledDepth = Math.max(size.z * scaleFactor, 3.6);
+              const camOffset = new THREE.Vector3(0, scaledHeight * 1.2 + 1.5, -scaledDepth * 1.4);
+              const worldCamPos = root.position.clone().add(camOffset.applyAxisAngle(new THREE.Vector3(0,1,0), root.rotation.y));
+              camera.position.copy(worldCamPos);
+              camera.lookAt(root.position.clone().add(new THREE.Vector3(0, scaledHeight * 0.5, 0)));
+            }
+            console.log('Loaded model models/lamborghini.glb, scaled by', scaleFactor);
+          }, undefined, (err) => {
+            console.warn('GLTF load failed, falling back to primitive car:', err);
+            createPrimitiveCar();
+          });
         } catch (e) {
           console.warn('GLTFLoader not usable, falling back to primitive car', e);
           createPrimitiveCar();
-          return;
         }
       }
+
+      // ensure a GLTFLoader is available; if not, try to inject the script then load
+      const tryUseLoader = () => {
+        const LoaderCtor = (typeof THREE !== 'undefined' && THREE.GLTFLoader) ? THREE.GLTFLoader : (window.GLTFLoader || (window.THREE && window.THREE.GLTFLoader));
+        if (LoaderCtor) { loadModelWithLoader(LoaderCtor); return true; }
+        return false;
+      };
+
+      if (!tryUseLoader()) {
+        // inject GLTFLoader script dynamically and attempt load on onload
+        const url = 'https://unpkg.com/three@0.158.0/examples/js/loaders/GLTFLoader.js';
+        const s = document.createElement('script'); s.src = url; s.onload = () => { if (!tryUseLoader()) { console.warn('GLTFLoader still unavailable after injection'); createPrimitiveCar(); } }; s.onerror = () => { console.warn('Failed to load GLTFLoader script, falling back'); createPrimitiveCar(); };
+        document.head.appendChild(s);
+        // return here; actual createPrimitiveCar or model creation will happen in callbacks
+        return;
+      }
+    }
     // if loader not available or force primitive, use primitive
     createPrimitiveCar();
   }
