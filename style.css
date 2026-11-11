@@ -1,12 +1,71 @@
-html,body{height:100%;margin:0}
+html,body{height:100%;margin:0;overflow:hidden;font-family:Arial,Helvetica,sans-serif}
 #canvas-container{width:100%;height:100vh;display:block}
 #canvas-container:after{content:"";position:absolute;left:50%;top:0;width:2px;height:100vh;background:rgba(255,255,255,.55);z-index:5;pointer-events:none}
-#ui{position:absolute;left:12px;top:12px;color:#fff;font-family:Arial,Helvetica,sans-serif;z-index:10;text-shadow:0 1px 2px rgba(0,0,0,0.7)}
-#ui h1{margin:0 0 6px 0;font-size:18px}
-#ui p{margin:0;font-size:13px}
-
-/* speedometer styling */
-#speedometer{display:block;margin-top:8px;border-radius:6px;background:rgba(255,255,255,0.04);box-shadow:0 2px 6px rgba(0,0,0,0.5)}
-
-/* simple full-screen canvas styling */
 canvas{display:block}
+
+/* top bar: car picker and restart */
+#ui{position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:10;display:flex;gap:6px;align-items:center;padding:5px 10px;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;font-size:13px;white-space:nowrap}
+
+/* one HUD per half of the split screen */
+.hud{position:absolute;top:0;bottom:0;width:50%;z-index:6;pointer-events:none;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+#hud1{left:0}
+#hud2{left:50%}
+.hud .stats{position:absolute;left:14px;top:50px;font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums}
+.hud .place{font-size:34px;font-weight:bold;line-height:1.1;color:var(--accent)}
+.hud .msg{position:absolute;left:0;right:0;top:30%;text-align:center;font-size:26px;font-weight:bold;color:#ffd24a}
+.hud .speedo{position:absolute;left:14px;bottom:16px;font-size:15px}
+#hud2 .speedo{left:auto;right:14px;text-align:right}
+#hud2 .bar{margin-left:auto}
+.hud .kmh{font-size:40px;font-weight:bold;font-variant-numeric:tabular-nums}
+.hud .bar{width:150px;height:6px;margin-top:4px;border-radius:3px;background:rgba(0,0,0,.5);overflow:hidden}
+.hud .bar i{display:block;height:100%;width:0;background:var(--accent)}
+
+#minimap{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:7;border-radius:8px;background:rgba(0,0,0,.45);pointer-events:none}
+#countdown{position:absolute;left:0;right:0;top:36%;z-index:8;text-align:center;font-size:110px;font-weight:bold;color:#fff;text-shadow:0 4px 12px rgba(0,0,0,.8);pointer-events:none}
+
+#overlay,#menu{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
+#overlayBox,#menuBox{min-width:300px;max-width:90vw;padding:22px 28px;border-radius:10px;background:#1c1f26;color:#fff;text-align:center}
+#overlayBox h2,#menuBox h2{margin:0 0 10px;font-size:26px}
+#overlayBox p,#menuBox p{margin:0 0 16px;font-size:14px;line-height:1.7;color:#cfd3da}
+#overlayBox button,#menuBox button{margin:0 4px;padding:8px 16px;font-size:14px;border:0;border-radius:6px;background:#ffd24a;color:#111;cursor:pointer}
+/* start menu: a panel on the left, the cars orbit on the right */
+#menu{z-index:30;justify-content:flex-start;padding-left:4vw;background:linear-gradient(90deg,rgba(8,12,20,.9),rgba(8,12,20,.35) 60%,rgba(8,12,20,0))}
+#menuBox{width:340px;min-width:0;text-align:left;background:rgba(20,24,33,.94)}
+#menuBox h2{margin:0 0 14px;font-size:30px;letter-spacing:1px}
+#menuBox .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;font-size:14px}
+#menuBox .row>span{color:#cfd3da;white-space:nowrap}
+#menuBox select{flex:1;max-width:210px;padding:6px 8px;border-radius:6px;border:1px solid #3a4150;background:#11141b;color:#fff;font-size:14px}
+#menuBox .seg{display:flex;gap:4px}
+#menuBox .seg button{margin:0;padding:6px 12px;background:#2a303d;color:#cfd3da}
+#menuBox .seg button.on{background:#ffd24a;color:#111;font-weight:bold}
+#trackInfo{display:block;margin:-4px 0 6px;color:#9aa1ad;font-size:12px}
+#menuBox #startBtn{width:100%;margin:16px 0 4px;padding:13px;font-size:20px;font-weight:bold;letter-spacing:1px}
+#menuBox #startBtn:disabled{opacity:.6;cursor:wait}
+#menuBox .keys{margin:10px 0 0;font-size:12px;line-height:1.6;color:#9aa1ad}
+body.in-menu .hud,body.in-menu #minimap,body.in-menu #countdown,body.in-menu #ui{display:none}
+
+/* 1 player: one full-width view, no divider, no second HUD */
+body.one-player #canvas-container:after{display:none}
+body.one-player #hud1{width:100%}
+body.one-player #hud2{display:none}
+
+/* track picker */
+#menuBox .pick{flex:1;max-width:210px;margin:0;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;background:#11141b;color:#fff;border:1px solid #ffd24a;font-size:14px;font-weight:bold}
+#menuBox .pick::after{content:"Change";font-size:11px;font-weight:normal;color:#ffd24a}
+#trackPicker{position:absolute;inset:0;z-index:40;display:none;align-items:center;justify-content:center;background:rgba(6,9,15,.88)}
+#pickerBox{width:min(900px,94vw);max-height:92vh;overflow:auto;padding:22px 26px;border-radius:12px;background:#1c1f26;color:#fff;text-align:center}
+#pickerBox h2{margin:0 0 16px;font-size:26px}
+#trackGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;text-align:left}
+.tcard{display:block;width:100%;padding:0;border:2px solid #2f3544;border-radius:10px;background:#11141b;color:#fff;cursor:pointer;overflow:hidden;font-family:inherit}
+.tcard:hover{border-color:#8a93a6}
+.tcard.on{border-color:#ffd24a;box-shadow:0 0 0 2px rgba(255,210,74,.35)}
+.tcard canvas{display:block;width:100%;height:auto}
+.tcard .tinfo{padding:9px 12px 11px}
+.tcard .tname{font-size:16px;font-weight:bold}
+.tcard .tmeta{margin-top:3px;font-size:12px;color:#aab1be}
+.tcard .tdesc{margin-top:5px;font-size:12px;color:#8e96a5}
+.tcard .tdiff{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9px;font-size:11px;color:#111}
+.tdiff.easy{background:#7fd37a}.tdiff.medium{background:#ffd24a}.tdiff.hard{background:#ff8a6a}
+#pickerBack{margin-top:18px;padding:10px 26px;font-size:15px;border:0;border-radius:6px;background:#ffd24a;color:#111;cursor:pointer}
+
+body.in-menu #canvas-container:after{display:none}

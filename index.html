@@ -3,30 +3,54 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>3D Car Driving Demo</title>
+    <title>3D Racing</title>
     <!-- Inline SVG favicon to avoid 404 for favicon.ico -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23ffdd00'/%3E%3Ctext x='8' y='11' font-size='9' font-family='Arial' text-anchor='middle' fill='%23000'%3EL%3C/text%3E%3C/svg%3E">
-    <link rel="stylesheet" href="style.css" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <!-- the timestamp makes the browser fetch the newest script and styles on every normal reload -->
+    <script>document.write('<link rel="stylesheet" href="style.css?v=' + Date.now() + '" />');</script>
   </head>
   <body>
     <div id="ui">
-      <h1>3D Car Driving Demo</h1>
-      <p>Player 1: WASD to drive &nbsp; | &nbsp; Player 2: Arrow keys to drive</p>
-      <label for="carSelect">Choose car:</label>
-      <select id="carSelect">
-        <option value="primitive">Primitive Lambo</option>
-        <option value="VC">VC (sample)</option>
-        <option value="Buggy">Buggy</option>
-        <option value="CesiumMilkTruck">CesiumMilkTruck</option>
-        <option value="ClearCoatCarPaint">ClearCoatCarPaint</option>
-        <option value="ToyCar">ToyCar</option>
-        <option value="CarbonFibre">CarbonFibre</option>
-        <option value="GTR_R35">GTR R35 (local)</option>
-      </select>
-      <button id="loadCarBtn">Load selected car</button>
-      <p>Speed: <span id="speed">0</span> m/s &nbsp; <button id="resetBtn">Reset</button></p>
-      <p>Pos: <span id="pos">0,0,0</span> &nbsp; OnTrack: <span id="onTrack">false</span></p>
-      <canvas id="speedometer" width="160" height="160" aria-label="speedometer"></canvas>
+      <button id="menuBtn">Menu</button>
+      <button id="resetBtn">Restart</button>
+      <span>Esc: pause</span>
+    </div>
+    <div class="hud" id="hud1"></div>
+    <div class="hud" id="hud2"></div>
+    <canvas id="minimap" width="220" height="165" aria-label="track map"></canvas>
+    <div id="countdown"></div>
+    <div id="menu">
+      <div id="menuBox">
+        <h2>3D Racing</h2>
+        <div class="row"><span>Mode</span>
+          <div class="seg" id="modeSeg"><button data-v="1" class="on">1 Player</button><button data-v="2">2 Players</button></div>
+        </div>
+        <div class="row"><span>Track</span><button id="trackBtn" class="pick" type="button"></button></div>
+        <small id="trackInfo"></small>
+        <div class="row"><span id="car1Label">Your car</span><select id="car1Select"></select></div>
+        <div class="row"><span id="car2Label">Computer car</span><select id="car2Select"></select></div>
+        <div class="row"><span>Laps</span><select id="lapsSelect"></select></div>
+        <button id="startBtn" disabled>Loading...</button>
+        <p class="keys">1 Player: W A S D or arrow keys<br>2 Players: Player 1 W A S D, Player 2 arrow keys<br>R / Enter: back on track &nbsp; Esc: pause</p>
+      </div>
+    </div>
+    <div id="trackPicker">
+      <div id="pickerBox">
+        <h2>Select track</h2>
+        <div id="trackGrid"></div>
+        <button id="pickerBack" type="button">Back</button>
+      </div>
+    </div>
+    <div id="overlay">
+      <div id="overlayBox">
+        <h2 id="overlayTitle"></h2>
+        <p id="overlayBody"></p>
+        <button id="resumeBtn">Resume</button>
+        <button id="restartBtn">Restart race</button>
+        <button id="menuBtn2">Menu</button>
+      </div>
     </div>
     <div id="canvas-container"></div>
 
@@ -46,21 +70,6 @@
       window.THREE = THREE;
       window.GLTFLoader = GLTFLoader;
     </script>
-    <script src="main.js"></script>
-    <script>
-      // loadCarBtn behavior: tells main.js to load a specific model via window._CAR_DEMO API
-      document.addEventListener('DOMContentLoaded', function() {
-        const sel = document.getElementById('carSelect');
-        const btn = document.getElementById('loadCarBtn');
-        btn.addEventListener('click', () => {
-          const v = sel.value;
-          if (window._CAR_DEMO && window._CAR_DEMO.loadModel) {
-            window._CAR_DEMO.loadModel(v);
-          } else {
-            alert('Loader not ready yet');
-          }
-        });
-      });
-    </script>
+    <script>document.write('<script src="main.js?v=' + Date.now() + '"><\/script>');</script>
   </body>
 </html>

@@ -12,28 +12,11 @@ const puppeteer = require('puppeteer-core');
     page.on('console', msg => console.log('PAGE CONSOLE:', msg.type(), msg.text()));
     page.on('pageerror', err => console.log('PAGE ERROR:', err.message));
 
-    // ensure UI present
-    await page.waitForSelector('#carSelect', {timeout:5000});
-    // set value and click load
-    console.log('Selecting GTR_R35 and loading');
-    await page.select('#carSelect','GTR_R35');
-    await page.click('#loadCarBtn');
-
-    // wait for model loaded or timeout
-    const loaded = await page.evaluate(() => {
-      return new Promise(resolve=>{
-        let seen=false;
-        const timeout = setTimeout(()=>resolve(false),8000);
-        const check = ()=>{
-          if(window._CAR_DEMO && window._CAR_DEMO.car && window._CAR_DEMO.car.obj){ clearTimeout(timeout); resolve(true); }
-        };
-        check();
-        // also listen to console 'Loaded model' if available
-        const orig = console.log;
-        console.log = function(){ try{ const s = Array.from(arguments).join(' '); if(s.includes('Loaded model')){ clearTimeout(timeout); resolve(true);} }catch(e){} orig.apply(console,arguments); };
-        // poll
-        const iv = setInterval(()=>{ if(window._CAR_DEMO && window._CAR_DEMO.car && window._CAR_DEMO.car.obj){ clearInterval(iv); clearTimeout(timeout); resolve(true); } },250);
-      });
+    await page.waitForFunction('window._CAR_DEMO && window._CAR_DEMO.start', {timeout:8000});
+    console.log('Starting a race with the GTR_R35');
+    const loaded = await page.evaluate(async () => {
+      await window._CAR_DEMO.start({ mode: 1, track: 'circuit', car1: 'GTR_R35', car2: 'GTR_R35' });
+      return !!(window._CAR_DEMO.car && window._CAR_DEMO.car.obj);
     });
     console.log('Model load result:', loaded);
 
