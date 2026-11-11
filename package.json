@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "puppeteer-core": "^25.11.0"
+  },
+  "devDependencies": {
+    "eslint": "^10.14.0"
+  }
+}

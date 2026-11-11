@@ -3,7 +3,7 @@
   console.log('main.js loaded (enhanced)');
   window._CAR_DEMO = window._CAR_DEMO || {};
 
-  let scene, camera, renderer, container, clock;
+  let scene, camera, camera2, renderer, container, clock;
 
   // --- World / gameplay parameters ---
   const WORLD_SIZE = 600;
@@ -41,6 +41,12 @@
   const FORCE_PRIMITIVE_CAR = false;
 
   const controls = { forward: false, backward: false, left: false, right: false, handbrake: false };
+  const controls2 = { forward: false, backward: false, left: false, right: false, handbrake: false };
+  const player2State = { ...carState };
+  const players = [
+    { controls, state: carState, camera: null, car: null },
+    { controls: controls2, state: player2State, camera: null, car: null }
+  ];
 
   // speedometer canvas
   let speedometerCanvas, speedometerCtx;
@@ -48,8 +54,6 @@
   function createRenderer() {
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio || 1);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     // improved color & tonemapping for more realistic lighting
     // follow r155+ API changes: set outputColorSpace when available
     if ('outputColorSpace' in renderer && typeof THREE !== 'undefined' && THREE.SRGBColorSpace !== undefined) {
@@ -59,7 +63,9 @@
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
     }
     renderer.toneMappingExposure = 1.0;
-    renderer.setSize(container.clientWidth, container.clientHeight);
+    const width = Math.max(1, container.clientWidth || window.innerWidth || 1);
+    const height = Math.max(1, container.clientHeight || window.innerHeight || 1);
+    renderer.setSize(width, height);
     container.appendChild(renderer.domElement);
   }
 
@@ -74,8 +80,14 @@
   }
 
   function createCamera() {
-    camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+    const width = Math.max(1, container.clientWidth || window.innerWidth || 1);
+    const height = Math.max(1, container.clientHeight || window.innerHeight || 1);
+    camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
     camera.position.set(0, 6, -18);
+    camera2 = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
+    camera2.position.set(0, 6, -18);
+    players[0].camera = camera;
+    players[1].camera = camera2;
   }
 
   function createLights() {
@@ -90,25 +102,8 @@
     // stronger sun light for crisp shadows
     const sun = new THREE.DirectionalLight(0xffffff, 1.2);
     sun.position.set(30, 80, 50);
-    sun.castShadow = true;
-    sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 300;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.bias = -0.0005;
     scene.add(sun);
 
-    // soft contact shadows under car using a simple blob texture (if available) - generate a canvas texture
-    const shadowCanvas = document.createElement('canvas'); shadowCanvas.width = 256; shadowCanvas.height = 256;
-    const sc = shadowCanvas.getContext('2d');
-    sc.clearRect(0,0,256,256);
-    const g = sc.createRadialGradient(128,128,20,128,128,128);
-    g.addColorStop(0,'rgba(0,0,0,0.65)'); g.addColorStop(0.5,'rgba(0,0,0,0.22)'); g.addColorStop(1,'rgba(0,0,0,0)');
-    sc.fillStyle = g; sc.fillRect(0,0,256,256);
-    const shadowTex = new THREE.CanvasTexture(shadowCanvas);
-    shadowTex.wrapS = shadowTex.wrapT = THREE.ClampToEdgeWrapping;
-    shadowTex.encoding = THREE.sRGBEncoding || shadowTex.encoding;
-    // store for use by car underlay
-    window._CAR_DEMO.contactShadow = shadowTex;
   }
 
   function createGround() {
@@ -218,9 +213,66 @@
     return !isAngleInGap(angle);
   }
 
+  const CAR_PLATE_NUMBERS = {
+    primitive: 'LMB-001',
+    VC: 'VC-247',
+    Buggy: 'BUG-508',
+    CesiumMilkTruck: 'CMT-314',
+    ClearCoatCarPaint: 'CCP-726',
+    ToyCar: 'TOY-193',
+    CarbonFibre: 'CBF-640',
+    GTR_R35: 'GTR-035'
+  };
+
+  function addNumberPlates(parent, number, width, height, length, y, axis = 'z', frontPosition = length / 2, rearPosition = -length / 2, stripLabel = number.replace(/-/g, ''), rearStripLabel = stripLabel, rearNumber = number) {
+    function createPlateMaterial(label, registration) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#f7f7f2';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const isCheenuPlate = label === "CHEENU'S CAR";
+    const stripWidth = isCheenuPlate ? 220 : 58;
+    context.fillStyle = '#174a9c';
+    context.fillRect(0, 0, stripWidth, canvas.height);
+    context.fillStyle = '#f7f7f2';
+    context.font = isCheenuPlate ? 'bold 18px Arial' : 'bold 34px Arial';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText('GB', stripWidth / 2, 38);
+    context.font = isCheenuPlate ? 'bold 19px Arial' : 'bold 13px Arial';
+    context.fillText(label, stripWidth / 2, 94);
+    context.strokeStyle = '#111111';
+    context.lineWidth = 7;
+    context.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+    context.fillStyle = '#111111';
+    context.font = 'bold 64px Arial';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.font = registration.length > 10 ? 'bold 38px Arial' : 'bold 64px Arial';
+    context.fillText(registration, stripWidth + (canvas.width - stripWidth) / 2, canvas.height / 2 + 3);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    if ('colorSpace' in texture && THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+    return new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+    }
+    const frontMaterial = createPlateMaterial(stripLabel, number);
+    const rearMaterial = createPlateMaterial(rearStripLabel, rearNumber);
+    const geometry = axis === 'x'
+      ? new THREE.BoxGeometry(0.04, height, width)
+      : new THREE.BoxGeometry(width, height, 0.04);
+    const front = new THREE.Mesh(geometry, frontMaterial);
+    front.position.set(axis === 'x' ? frontPosition + 0.03 : 0, y, axis === 'z' ? frontPosition + 0.03 : 0);
+    parent.add(front);
+    const rear = new THREE.Mesh(geometry.clone(), rearMaterial);
+    rear.position.set(axis === 'x' ? rearPosition - 0.03 : 0, y, axis === 'z' ? rearPosition - 0.03 : 0);
+    parent.add(rear);
+  }
+
   function createCar() {
     // Try to load a GLTF model (models/lamborghini.glb) and fall back to a primitive car
-    function createPrimitiveCar() {
+    function createPrimitiveCar(playerIndex = 0) {
       const car = new THREE.Group();
       // Lamborghini-like primitive: low, wide, angular, yellow paint
       const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.35, roughness: 0.25 });
@@ -248,10 +300,6 @@
       const rearL = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.06), rearLightMat);
       rearL.position.set(-0.5, 0.46, -2.05); rearL.castShadow = false; car.add(rearL);
       const rearR = rearL.clone(); rearR.position.x = 0.5; car.add(rearR);
-      // underglow neon (emissive plane under car)
-      const underMat = new THREE.MeshStandardMaterial({ color: 0x00ffd0, emissive: 0x00ffd0, emissiveIntensity: 0.0, transparent: true, opacity: 0.6, roughness: 1 });
-      const under = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.6), underMat);
-      under.rotation.x = -Math.PI/2; under.position.set(0, 0.05, 0); under.receiveShadow = false; under.renderOrder = 2; car.add(under);
       // headlights (emissive) - narrow, aggressive
       const lightMat = new THREE.MeshStandardMaterial({ color: 0xffffcc, emissive: 0xffffcc, emissiveIntensity: 0.9 });
       const lh = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.08, 0.06), lightMat);
@@ -273,24 +321,21 @@
       // start near the gap entry outside the outer radius so player can drive in
       const gapAng = TRACK.gapCenterAngle;
       const startR = TRACK.outerRadius + 6;
-      car.position.set(Math.cos(gapAng) * startR, 0, Math.sin(gapAng) * startR);
+      const laneOffset = playerIndex === 0 ? -3 : 3;
+      car.position.set(Math.cos(gapAng) * startR + laneOffset, 0, Math.sin(gapAng) * startR);
       // orient to face center of gap
       const dirX = -car.position.x, dirZ = -car.position.z;
       car.rotation.y = Math.atan2(dirX, dirZ);
-      // contact shadow under car
-      if (window._CAR_DEMO && window._CAR_DEMO.contactShadow) {
-        const shadowMat = new THREE.MeshBasicMaterial({ map: window._CAR_DEMO.contactShadow, transparent: true, depthWrite: false });
-        const sh = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.6), shadowMat);
-        sh.rotation.x = -Math.PI/2; sh.position.set(0, 0.01, 0); sh.renderOrder = 1; car.add(sh);
-        car.userData.contactShadow = sh;
-      }
+      car.traverse((node) => { node.castShadow = false; node.receiveShadow = false; });
+      addNumberPlates(car, CAR_PLATE_NUMBERS.primitive, 0.9, 0.25, 4.2, 0.4);
       scene.add(car);
       // store references for runtime visual updates
       car.userData = car.userData || {};
       car.userData.make = 'Lamborghini (primitive)';
       car.userData.rearLights = [rearL, rearR];
-      car.userData.underglow = under;
-      window._CAR_DEMO.car = { obj: car, wheels: wheels };
+      const carRecord = { obj: car, wheels: wheels };
+      players[playerIndex].car = carRecord;
+      if (playerIndex === 0) window._CAR_DEMO.car = carRecord;
     }
 
     // Attempt to load GLTF models; provide API window._CAR_DEMO.loadModel(name)
@@ -317,7 +362,7 @@
             model.position.sub(center.multiplyScalar(scaleFactor));
             model.traverse((n) => {
               if (n.isMesh) {
-                n.castShadow = true; n.receiveShadow = true;
+                n.castShadow = false; n.receiveShadow = false;
                 // ensure materials are visible from all sides and update
                 if (n.material) {
                   n.material.side = (THREE && THREE.DoubleSide) || 2;
@@ -333,12 +378,20 @@
               root.add(helper);
             } catch (e) { /* ignore helper errors */ }
             root.add(model);
+            addNumberPlates(root, CAR_PLATE_NUMBERS.primitive, Math.max(size.x * scaleFactor * 0.32, 0.6), Math.max(size.x * scaleFactor * 0.08, 0.16), size.z * scaleFactor, Math.max(size.y * scaleFactor * 0.18, 0.25));
             // place near gap
             const gapAng = TRACK.gapCenterAngle; const startR = TRACK.outerRadius + 6;
             root.position.set(Math.cos(gapAng) * startR, 0, Math.sin(gapAng) * startR);
     // remove debug axes helper (clean up final scene)
             scene.add(root);
-            window._CAR_DEMO.car = { obj: root, wheels: [] };
+             const playerOne = { obj: root, wheels: [] };
+             const playerTwoRoot = root.clone(true);
+             playerTwoRoot.position.x += 6;
+             scene.add(playerTwoRoot);
+             const playerTwo = { obj: playerTwoRoot, wheels: [] };
+             players[0].car = playerOne;
+             players[1].car = playerTwo;
+             window._CAR_DEMO.car = playerOne;
             // position camera to focus the model
             if (camera) {
               const scaledHeight = Math.max(size.y * scaleFactor, 1.8);
@@ -351,11 +404,13 @@
             console.log('Loaded model models/lamborghini.glb, scaled by', scaleFactor);
           }, undefined, (err) => {
             console.warn('GLTF load failed, falling back to primitive car:', err);
-            createPrimitiveCar();
+            createPrimitiveCar(0);
+            createPrimitiveCar(1);
           });
         } catch (e) {
           console.warn('GLTFLoader not usable, falling back to primitive car', e);
-          createPrimitiveCar();
+          createPrimitiveCar(0);
+          createPrimitiveCar(1);
         }
       }
 
@@ -374,14 +429,14 @@
           'CesiumMilkTruck': 'models/CesiumMilkTruck.glb',
           'ClearCoatCarPaint': 'models/ClearCoatCarPaint.glb',
           'ToyCar': 'models/ToyCar.glb',
-          'CarbonFibre': 'models/CarbonFibre.glb'
+          'CarbonFibre': 'models/CarbonFibre.glb',
+          'GTR_R35': 'models/GTR_R35.glb'
         };
-        // add user-provided GTR model if present
-        try { if (require) { const fs = require('fs'); if (fs.existsSync('models/GTR_R35.glb')) map['GTR_R35'] = 'models/GTR_R35.glb'; } } catch (e) { /* ignore in browser */ }
         const url = map[name] || name;
         if (!url) {
           // create primitive
-          createPrimitiveCar();
+          createPrimitiveCar(0);
+          createPrimitiveCar(1);
           return;
         }
         const LoaderCtor = tryUseLoader();
@@ -393,9 +448,9 @@
           }).catch(() => {});
         }
         const FinalLoader = (typeof THREE !== 'undefined' && THREE.GLTFLoader) ? THREE.GLTFLoader : (window.GLTFLoader || window.THREE && window.THREE.GLTFLoader);
-        if (!FinalLoader) { console.warn('GLTFLoader unavailable, falling back to primitive'); createPrimitiveCar(); return; }
+        if (!FinalLoader) { console.warn('GLTFLoader unavailable, falling back to primitive'); createPrimitiveCar(0); createPrimitiveCar(1); return; }
         // clear previous car
-        if (window._CAR_DEMO.car && window._CAR_DEMO.car.obj) { scene.remove(window._CAR_DEMO.car.obj); window._CAR_DEMO.car = null; }
+         players.forEach((player) => { if (player.car && player.car.obj) scene.remove(player.car.obj); player.car = null; });
         const loader = new FinalLoader();
         modelLoadStarted = true;
         loader.load(url, (gltf) => {
@@ -405,22 +460,56 @@
           const size = bbox.getSize(new THREE.Vector3());
           const center = bbox.getCenter(new THREE.Vector3());
           const maxDim = Math.max(size.x, size.y, size.z) || 1;
-          const target = 4.0;
+          const target = name === 'GTR_R35' ? 12.0 : 4.0;
           const scaleFactor = target / maxDim;
           model.scale.setScalar(scaleFactor);
           model.position.sub(center.multiplyScalar(scaleFactor));
-          model.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; if (n.material) { n.material.side = (THREE && THREE.DoubleSide) || 2; n.material.needsUpdate = true; } } });
+          model.position.y += (center.y - bbox.min.y) * scaleFactor + 0.04;
+          model.traverse((n) => {
+            if (!n.isMesh) return;
+            n.castShadow = false;
+            n.receiveShadow = false;
+            const materials = Array.isArray(n.material) ? n.material : [n.material];
+            const box = new THREE.Box3().setFromObject(n);
+            const meshSize = box.getSize(new THREE.Vector3());
+            const isFlatPatch = meshSize.y < target * 0.05 && meshSize.x > target * 0.1 && meshSize.z > target * 0.1;
+            if (isFlatPatch) n.visible = false;
+            materials.forEach((material) => {
+              if (material) {
+                material.side = (THREE && THREE.DoubleSide) || 2;
+                material.needsUpdate = true;
+              }
+            });
+          });
           root.add(model);
+          const plateAxis = size.x > size.z ? 'x' : 'z';
+          const axisWidth = plateAxis === 'x' ? size.z : size.x;
+          const axisLength = plateAxis === 'x' ? size.x : size.z;
+          const plateWidth = Math.max(axisWidth * scaleFactor * 0.42, 0.8);
+          const plateLength = axisLength * scaleFactor;
+          const scaledMin = (plateAxis === 'x' ? bbox.min.x : bbox.min.z) * scaleFactor - (plateAxis === 'x' ? center.x : center.z) * scaleFactor;
+          const scaledMax = (plateAxis === 'x' ? bbox.max.x : bbox.max.z) * scaleFactor - (plateAxis === 'x' ? center.x : center.z) * scaleFactor;
+          const plateHeight = Math.max(size.y * scaleFactor * 0.08, 0.16);
+          const plateY = model.position.y + (bbox.min.y + size.y * 0.35 - center.y) * scaleFactor;
+          const plateLabel = CAR_PLATE_NUMBERS[name] || `${name}-001`;
+          addNumberPlates(root, plateLabel, plateWidth, plateHeight, plateLength, plateY, plateAxis, scaledMax, scaledMin, plateLabel.replace(/-/g, ''), name === 'GTR_R35' ? "CHEENU'S CAR" : plateLabel.replace(/-/g, ''), name === 'GTR_R35' ? "CHEENU'S CAR" : plateLabel);
           const gapAng = TRACK.gapCenterAngle; const startR = TRACK.outerRadius + 6;
           root.position.set(Math.cos(gapAng) * startR, 0, Math.sin(gapAng) * startR);
           scene.add(root);
-          window._CAR_DEMO.car = { obj: root, wheels: [] };
+           const playerOne = { obj: root, wheels: [] };
+           const playerTwoRoot = root.clone(true);
+           playerTwoRoot.position.x += 6;
+           scene.add(playerTwoRoot);
+           const playerTwo = { obj: playerTwoRoot, wheels: [] };
+           players[0].car = playerOne;
+           players[1].car = playerTwo;
+           window._CAR_DEMO.car = playerOne;
           console.log('Loaded model', url, 'scaled by', scaleFactor);
-        }, undefined, (err) => { console.warn('GLTF load failed, falling back to primitive car:', err); createPrimitiveCar(); });
+         }, undefined, (err) => { console.warn('GLTF load failed, falling back to primitive car:', err); createPrimitiveCar(0); createPrimitiveCar(1); });
       };
     }
     // if loader not available and no async load started, use primitive
-    if (!modelLoadStarted) createPrimitiveCar();
+    if (!modelLoadStarted) { createPrimitiveCar(0); createPrimitiveCar(1); }
   }
 
   // input: arrow keys always map Up=forward, Down=backward, Left=steer left, Right=steer right
@@ -432,13 +521,12 @@
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space","KeyW","KeyA","KeyS","KeyD"].includes(e.code)) {
       e.preventDefault();
     }
-    // handle arrows and space first (consistent mapping)
+    // Player 2 uses arrow keys; Player 1 uses WASD.
     switch (e.code) {
-      case 'ArrowUp': controls.forward = true; return;
-      case 'ArrowDown': controls.backward = true; return;
-      case 'ArrowLeft': controls.left = true; return;
-      case 'ArrowRight': controls.right = true; return;
-      case 'Space': controls.handbrake = true; return;
+      case 'ArrowUp': controls2.forward = true; return;
+      case 'ArrowDown': controls2.backward = true; return;
+      case 'ArrowLeft': controls2.left = true; return;
+      case 'ArrowRight': controls2.right = true; return;
     }
 
     // WASD mapping (may be inverted by flag)
@@ -465,11 +553,10 @@
       e.preventDefault();
     }
     switch (e.code) {
-      case 'ArrowUp': controls.forward = false; return;
-      case 'ArrowDown': controls.backward = false; return;
-      case 'ArrowLeft': controls.left = false; return;
-      case 'ArrowRight': controls.right = false; return;
-      case 'Space': controls.handbrake = false; return;
+      case 'ArrowUp': controls2.forward = false; return;
+      case 'ArrowDown': controls2.backward = false; return;
+      case 'ArrowLeft': controls2.left = false; return;
+      case 'ArrowRight': controls2.right = false; return;
     }
 
     if (!INVERT_CONTROLS) {
@@ -533,39 +620,41 @@
     return isCarOnTrackPos(pos);
   }
 
-  function updateCar(dt) {
-    const c = window._CAR_DEMO.car; if (!c) return;
+  function updateCar(dt, player = players[0]) {
+    const c = player.car; if (!c) return;
+    const playerControls = player.controls;
+    const state = player.state;
 
     // remember position before movement
     const posBefore = c.obj.position.clone();
 
     // acceleration/braking
-    if (controls.forward) {
-      carState.speed += carState.accel * dt;
-    } else if (controls.backward) {
-      carState.speed -= carState.brake * dt;
+    if (playerControls.forward) {
+      state.speed += state.accel * dt;
+    } else if (playerControls.backward) {
+      state.speed -= state.brake * dt;
     } else {
-      if (carState.speed > 0) carState.speed = Math.max(0, carState.speed - carState.friction * dt);
-      else carState.speed = Math.min(0, carState.speed + carState.friction * dt);
+      if (state.speed > 0) state.speed = Math.max(0, state.speed - state.friction * dt);
+      else state.speed = Math.min(0, state.speed + state.friction * dt);
     }
 
     // clamp speed to current limits
-    const halfMax = carState.maxSpeed / 2;
-    carState.speed = Math.max(-halfMax, Math.min(carState.maxSpeed, carState.speed));
+    const halfMax = state.maxSpeed / 2;
+    state.speed = Math.max(-halfMax, Math.min(state.maxSpeed, state.speed));
 
     // steering
-    let steerInput = 0; if (controls.left) steerInput = 1; if (controls.right) steerInput = -1;
+    let steerInput = 0; if (playerControls.left) steerInput = 1; if (playerControls.right) steerInput = -1;
     const steerSpeed = 3.0;
-    carState.steering += (steerInput * carState.maxSteering - carState.steering) * Math.min(1, steerSpeed * dt);
+    state.steering += (steerInput * state.maxSteering - state.steering) * Math.min(1, steerSpeed * dt);
 
     // update orientation
     const yaw = c.obj.rotation.y;
     const forwardVec = new THREE.Vector3(0,0,1).applyAxisAngle(new THREE.Vector3(0,1,0), yaw).normalize();
-    const turnSpeed = carState.steering * (carState.speed / Math.max(1, carState.maxSpeed)) * dt * 2.2;
+    const turnSpeed = state.steering * (state.speed / Math.max(1, state.maxSpeed)) * dt * 2.2;
     c.obj.rotation.y += turnSpeed;
 
     // move car
-    const move = forwardVec.clone().multiplyScalar(carState.speed * dt);
+    const move = forwardVec.clone().multiplyScalar(state.speed * dt);
     c.obj.position.add(move);
 
     // after movement
@@ -581,7 +670,7 @@
 
     if (!ENFORCE_TRACK_BOUNDARY) {
       // bypass checks: allow entering/exiting freely during debug
-      carState.onTrack = nowOnTrack;
+      state.onTrack = nowOnTrack;
     } else if (nowOnTrack && !wasOnTrack) {
       // entering: allow if approach or arrival angle lies within the gap or the midpoint angle crosses the gap
       function midAngle(a, b) {
@@ -615,7 +704,7 @@
       const forwardToCenterDot = forwardDir.dot(toCenter);
       const radialApproach = forwardToCenterDot > 0.6 && angDist(angleBefore, TRACK.gapCenterAngle) <= (TRACK.gapSize/2 + 0.4);
       if (isAngleInGap(angleBefore) || isAngleInGap(angleAfter) || isAngleInGap(angleMid) || isAngleInGap(moveAngle) || nearGap || radialApproach || crossesGap(posBefore, posAfter, 12)) {
-        carState.onTrack = true; carState.maxSpeed = carState.baseMaxSpeed * 3; carState.speed = carState.speed * 3;
+        state.onTrack = true; state.maxSpeed = state.baseMaxSpeed * 3; state.speed = state.speed * 3;
         nowOnTrack = true;
       } else {
         // block entry: revert position and stop
@@ -625,12 +714,12 @@
           rBefore: rBefore.toFixed(2), rAfter: rAfter.toFixed(2), wasOnTrack, nowOnTrack
         });
         c.obj.position.copy(posBefore);
-        carState.speed = 0;
+        state.speed = 0;
         nowOnTrack = false;
       }
     } else if (!ENFORCE_TRACK_BOUNDARY && !nowOnTrack && wasOnTrack) {
       // when enforcement disabled, allow exits freely
-      carState.onTrack = nowOnTrack;
+      state.onTrack = nowOnTrack;
     } else if (!nowOnTrack && wasOnTrack) {
       // exiting: allow if exit angle / midpoint or movement direction goes through the gap
       function midAngle(a, b) {
@@ -644,30 +733,30 @@
       const angleMidExit = midAngle(angleBefore, angleAfter);
       const moveAngle = Math.atan2(move.z, move.x);
       if (isAngleInGap(angleAfter) || isAngleInGap(angleMidExit) || isAngleInGap(moveAngle) || crossesGap(posBefore, posAfter, 12)) {
-        carState.onTrack = false; carState.maxSpeed = carState.baseMaxSpeed;
-        carState.speed = Math.sign(carState.speed) * Math.min(Math.abs(carState.speed), carState.maxSpeed);
+      state.maxSpeed = state.baseMaxSpeed;
+        state.speed = Math.sign(state.speed) * Math.min(Math.abs(state.speed), state.maxSpeed);
         nowOnTrack = false;
       } else {
         // block exit: revert and stop
         console.debug('track:block exit', { angleAfter: angleAfter.toFixed(3), angleMidExit: angleMidExit.toFixed(3), moveAngle: moveAngle.toFixed(3), inGapAfter: isAngleInGap(angleAfter), inGapMid: isAngleInGap(angleMidExit), inGapMove: isAngleInGap(moveAngle), rAfter: rAfter.toFixed(2), wasOnTrack, nowOnTrack });
         c.obj.position.copy(posBefore);
-        carState.speed = 0;
+        state.speed = 0;
         nowOnTrack = true;
       }
     }
     // Apply on-track state and ensure speed / maxSpeed reflect a 3x boost while on track.
     // If we just entered the track, give a one-time speed boost (x3). Always set maxSpeed accordingly.
     const justEntered = (nowOnTrack && !wasOnTrack);
-    carState.onTrack = nowOnTrack;
+    state.onTrack = nowOnTrack;
     if (justEntered) {
-      carState.speed = carState.speed * 3;
+      state.speed = state.speed * 3;
     }
-    carState.maxSpeed = carState.onTrack ? carState.baseMaxSpeed * 3 : carState.baseMaxSpeed;
+    state.maxSpeed = state.onTrack ? state.baseMaxSpeed * 3 : state.baseMaxSpeed;
     // clamp speed to the current max
-    carState.speed = Math.sign(carState.speed) * Math.min(Math.abs(carState.speed), carState.maxSpeed);
+    state.speed = Math.sign(state.speed) * Math.min(Math.abs(state.speed), state.maxSpeed);
 
     // adjust friction based on onTrack
-    if (!carState.onTrack) carState.friction = 18; else carState.friction = 8;
+    if (!state.onTrack) state.friction = 18; else state.friction = 8;
 
     // Soft slowdown when outside outerRadius but inside boundaryOuter
     const inSlowZone = (rAfter > TRACK.outerRadius && rAfter <= (TRACK.boundaryOuter || TRACK.outerRadius + 12));
@@ -676,13 +765,13 @@
       const zoneWidth = (TRACK.boundaryOuter || TRACK.outerRadius + 12) - TRACK.outerRadius;
       const depth = Math.max(0, Math.min(1, (rAfter - TRACK.outerRadius) / zoneWidth));
       // scale speed toward half speed at outer edge
-      carState.speed *= (1 - 0.5 * depth * Math.min(1, Math.abs(carState.speed) / Math.max(1, carState.baseMaxSpeed)));
+      state.speed *= (1 - 0.5 * depth * Math.min(1, Math.abs(state.speed) / Math.max(1, state.baseMaxSpeed)));
     }
 
     // handbrake: when active, quickly reduce speed to zero and increase friction
-    if (controls.handbrake) {
-      carState.speed = carState.speed * Math.max(0, 1 - 8 * dt);
-      carState.friction = Math.max(carState.friction, 60);
+    if (playerControls.handbrake) {
+      state.speed = state.speed * Math.max(0, 1 - 8 * dt);
+      state.friction = Math.max(state.friction, 60);
     }
 
     // clamp world bounds
@@ -691,23 +780,23 @@
     const minX = -WORLD_SIZE + margin, maxX = WORLD_SIZE - margin, minZ = -WORLD_SIZE + margin, maxZ = WORLD_SIZE - margin;
     const clampedX = Math.max(minX, Math.min(maxX, c.obj.position.x));
     const clampedZ = Math.max(minZ, Math.min(maxZ, c.obj.position.z));
-    if (clampedX !== c.obj.position.x || clampedZ !== c.obj.position.z) carState.speed = 0;
+    if (clampedX !== c.obj.position.x || clampedZ !== c.obj.position.z) state.speed = 0;
     c.obj.position.x = clampedX; c.obj.position.z = clampedZ;
 
     // rotate wheels
-    if (c.wheels && c.wheels.forEach) c.wheels.forEach(w => { w.rotation.x += carState.speed * dt * 0.8; });
+      c.wheels.forEach(w => { w.rotation.x += state.speed * dt * 0.8; });
 
     // runtime visual effects: rear lights and underglow intensity based on speed/brake
     if (c.obj && c.obj.userData) {
       const ud = c.obj.userData;
       if (ud.rearLights && ud.rearLights.forEach) {
         // make rear lights bright when braking or when handbrake is active
-        const brakeIntensity = (controls.backward || controls.handbrake || carState.speed < 0) ? 1.0 : 0.0;
+        const brakeIntensity = (playerControls.backward || playerControls.handbrake || state.speed < 0) ? 1.0 : 0.0;
         ud.rearLights.forEach(l => { if (l.material) l.material.emissiveIntensity = brakeIntensity * 1.2; });
       }
       if (ud.underglow && ud.underglow.material) {
         // undeglow intensity scales with absolute speed
-        const intensity = Math.min(1.0, Math.abs(carState.speed) / (carState.baseMaxSpeed * 2));
+        const intensity = Math.min(1.0, Math.abs(state.speed) / (state.baseMaxSpeed * 2));
         ud.underglow.material.emissiveIntensity = intensity * 0.8;
         ud.underglow.material.opacity = 0.3 + intensity * 0.7;
       }
@@ -717,8 +806,9 @@
     const desiredOffset = new THREE.Vector3(0, 4.2, -9.0);
     const worldOffset = desiredOffset.clone().applyAxisAngle(new THREE.Vector3(0,1,0), c.obj.rotation.y);
     const desiredPos = c.obj.position.clone().add(worldOffset);
-    camera.position.lerp(desiredPos, Math.min(1, dt*4.0));
-    camera.lookAt(c.obj.position.clone().add(new THREE.Vector3(0,1.2,0)));
+    const playerCamera = player.camera;
+    playerCamera.position.lerp(desiredPos, Math.min(1, dt*4.0));
+    playerCamera.lookAt(c.obj.position.clone().add(new THREE.Vector3(0,1.2,0)));
   }
 
   function updateUI() {
@@ -796,9 +886,31 @@
     animate();
   }
 
-  function onWindowResize() { const w = container.clientWidth, h = container.clientHeight; camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h); }
+  function onWindowResize() {
+    const w = Math.max(1, container.clientWidth || window.innerWidth || 1);
+    const h = Math.max(1, container.clientHeight || window.innerHeight || 1);
+    camera.aspect = (w / 2) / h;
+    camera.updateProjectionMatrix();
+    camera2.aspect = (w / 2) / h;
+    camera2.updateProjectionMatrix();
+    renderer.setSize(w, h, false);
+  }
 
-  function animate() { requestAnimationFrame(animate); const dt = Math.min(0.05, clock.getDelta()); try { updateCar(dt); updateUI(); } catch(e){ console.error(e); } renderer.render(scene, camera); }
+  function renderSplitScreen() {
+    const width = Math.max(1, container.clientWidth || window.innerWidth || 1);
+    const height = Math.max(1, container.clientHeight || window.innerHeight || 1);
+    const halfWidth = Math.floor(width / 2);
+    renderer.setScissorTest(true);
+    renderer.setViewport(0, 0, halfWidth, height);
+    renderer.setScissor(0, 0, halfWidth, height);
+    renderer.render(scene, camera);
+    renderer.setViewport(halfWidth, 0, width - halfWidth, height);
+    renderer.setScissor(halfWidth, 0, width - halfWidth, height);
+    renderer.render(scene, camera2);
+    renderer.setScissorTest(false);
+  }
+
+  function animate() { requestAnimationFrame(animate); const dt = Math.min(0.05, clock.getDelta()); try { updateCar(dt, players[0]); updateCar(dt, players[1]); updateUI(); } catch(e){ console.error(e); } renderSplitScreen(); }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
