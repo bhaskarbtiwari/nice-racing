@@ -1,0 +1,8 @@
+# Dependencies
+node_modules/
+
+# Visual Studio local state
+.vs/
+
+# Separate checkouts with their own git history
+agents/
