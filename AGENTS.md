@@ -15,7 +15,7 @@ Six tracks. A track is a closed curve through `points` ([x, z] metres) plus `hal
 
 ## Commands
 - Run: `python serve.py` (a no-cache server for this folder), then open http://localhost:8000. index.html adds a timestamp to `main.js` and `style.css`, so a normal reload always loads the latest code even with a plain `http.server`
-- Host: `.gitlab-ci.yml` publishes `index.html`, `main.js`, `style.css` and `models/` to GitLab Pages on every push to the default branch. The menu's Credits button reads `models/CREDITS.md`, so keep that file current
+- Host: `.github/workflows/pages.yml` (GitHub Pages) and `.gitlab-ci.yml` (GitLab Pages) publish `index.html`, `main.js`, `style.css` and `models/` on every push to the default branch. The menu's Credits button reads `models/CREDITS.md`, so keep that file current
 - Test: start Chrome with `--remote-debugging-port=9222`, then `node tests/simulate.js` or `node tests/test_gtr.js`
 
 ## Console API (`window._CAR_DEMO`)
