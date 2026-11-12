@@ -89,3 +89,56 @@ body.in-menu #canvas-container:after{display:none}
 #creditsBody b{color:#fff}
 #creditsBody small{display:block;color:#8e96a5}
 #creditsClose{margin-top:14px;padding:9px 24px;font-size:14px;border:0;border-radius:6px;background:#ffd24a;color:#111;cursor:pointer}
+
+/* ---- online play panel ---- */
+#onlinePanel{display:none;margin:10px 0 0;padding:10px;border-radius:8px;background:rgba(255,255,255,.05)}
+#onlinePanel input{flex:1;min-width:0;padding:7px 8px;border-radius:6px;border:1px solid #3a4150;background:#11141b;color:#fff;font-size:14px}
+#onlinePanel .row{margin:6px 0}
+#onlinePanel .row button{margin:0;padding:8px 14px;font-size:14px;white-space:nowrap}
+#roomInput{text-transform:uppercase;letter-spacing:2px}
+#roomLive{display:none}
+#roomLive .roomhead{font-size:13px;color:#cfd3da}
+#roomLive .roomhead b{color:#ffd24a;font-size:20px;letter-spacing:3px}
+#roomLive #roomLink{font-size:11px}
+#roomPlayers{list-style:none;margin:6px 0 0;padding:0;font-size:12px;color:#cfd3da}
+#roomPlayers li{margin:3px 0}
+#roomPlayers i{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle}
+#roomStatus{min-height:16px;margin-top:6px;font-size:12px;color:#ffd24a}
+body.online #car2Row,body.online #car2Stats{display:none}
+body.online #resetBtn{display:none}
+#menuBox button:disabled,#onlinePanel button:disabled{opacity:.55;cursor:default}
+
+/* ---- touch controls (phones and tablets) ---- */
+#touch{display:none;position:absolute;inset:0;z-index:9;pointer-events:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+body.touch #touch{display:block}
+body.touch.in-menu #touch{display:none}
+#touch button{pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;font-family:inherit;color:#fff;border:2px solid rgba(255,255,255,.55);background:rgba(20,24,33,.45);border-radius:18px;font-weight:bold;cursor:pointer}
+#touch button.down{background:rgba(255,210,74,.65);color:#111}
+.tpad{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:flex-end}
+.tleft{left:calc(14px + env(safe-area-inset-left))}
+.tright{right:calc(14px + env(safe-area-inset-right))}
+.tbtn{--u:clamp(54px,15vw,92px);width:var(--u);height:var(--u);font-size:calc(var(--u)*.32)}
+.tgas{width:calc(var(--u)*1.15);height:calc(var(--u)*1.4);font-size:calc(var(--u)*.22);background:rgba(40,160,70,.5)!important}
+.tbrake{width:calc(var(--u)*1.05);height:var(--u);font-size:calc(var(--u)*.16);background:rgba(190,50,50,.5)!important}
+.tsm{width:calc(var(--u)*.6);height:calc(var(--u)*.6);font-size:calc(var(--u)*.15)}
+.tpad{gap:clamp(6px,2vw,12px)}
+.ttop{position:absolute;top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));display:flex;gap:10px}
+.tsmall{width:46px;height:40px;font-size:16px;border-radius:12px!important}
+body.touch .hud .speedo{bottom:calc(clamp(54px,15vw,92px) + 34px)}
+body.touch #minimap{left:auto;right:8px;bottom:auto;top:60px;transform:scale(.6);transform-origin:top right}
+body.touch #ui .hint,body.touch #resetBtn{display:none}
+#fsBtn{padding:2px 8px}
+
+/* ---- small screens: the menu fills the screen and scrolls ---- */
+html,body{overscroll-behavior:none}
+#menuBox,#pickerBox,#creditsBox,#overlayBox{touch-action:pan-y;-webkit-overflow-scrolling:touch}
+#menuBox{max-height:94vh;overflow-y:auto}
+@media (max-width:820px),(max-height:560px){
+  #menu{padding-left:0;justify-content:center;background:rgba(8,12,20,.9)}
+  #menuBox{width:min(460px,96vw);padding:14px 16px}
+  #menuBox h2{font-size:24px;margin-bottom:8px}
+  #menuBox .keys{display:none}
+  .hud .stats{top:46px;font-size:13px}
+  .hud .place{font-size:26px}
+  #countdown{font-size:80px}
+}

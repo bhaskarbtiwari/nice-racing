@@ -1,6 +1,6 @@
 # nice: 3D racing game
 
-Three.js racing game: 1 player vs a computer driver, or 2 players on a split screen. Pick mode, track (the Track button opens a card picker), cars and laps on the start menu, then press START RACE. Rules: `CONSTITUTION.md`.
+Three.js racing game: 1 player vs a computer driver, 2 players on a split screen, or online with up to 8 players (rooms with a 5-character code or an invite link `?room=CODE`). Works on phones with on-screen touch buttons. Pick mode, track (the Track button opens a card picker), cars and laps on the start menu, then press START RACE. Rules: `CONSTITUTION.md`.
 
 ## Files
 - `index.html`: start menu, HUD containers, import map (three@0.158.0 from unpkg)
@@ -18,8 +18,14 @@ Six tracks. A track is a closed curve through `points` ([x, z] metres) plus `hal
 - Host: `.github/workflows/pages.yml` (GitHub Pages) and `.gitlab-ci.yml` (GitLab Pages) publish `index.html`, `main.js`, `style.css` and `models/` on every push to the default branch. The menu's Credits button reads `models/CREDITS.md`, so keep that file current
 - Test: start Chrome with `--remote-debugging-port=9222`, then `node tests/simulate.js` or `node tests/test_gtr.js`
 
+## Online and touch
+- Online (`mode 3`): WebRTC through PeerJS (loaded from unpkg; its free public broker only introduces players, and it includes a free TURN relay). The room's host relays everyone's position (about 20 a second); each player drives their own car, so there is no anti-cheat. Messages: `hello`, `welcome`, `lobby`, `start`, `ready`, `go`, `s` (state), `bye`, `reject`. Everything from the network is checked in `cleanState` / `cleanEntry`. The code is in the "Online play" section of `main.js`; remote cars live in `remotes`, the local car is always `players[0]`
+- Race start is two-step: the host sends `start`, everyone loads the track and cars and sends `ready`, then the host sends `go` (the `race.hold` flag keeps the countdown frozen until then)
+- To test with two tabs, drive each with `_CAR_DEMO.step(dt)` plus `_CAR_DEMO.net.tick()` and `.updateRemotes(dt)`, and yield with `MessageChannel` (background tabs throttle timers)
+- Touch buttons (`#touch`, shown on touch devices or with `?touch=1`) set the same `controls` as the keyboard
+
 ## Console API (`window._CAR_DEMO`)
-`start({mode, track, car1, car2, laps})` applies choices and starts a race. `step(dt)` advances the game without a browser frame. Also `race`, `players`, `sel`, `tracks`, `cars`, `track()`, `checkTracks()`, `ai` (`skill`, `brake`), `reset`, `showMenu`, `loadModel(name)`, `simulate`.
+`start({mode, track, car1, car2, laps})` applies choices and starts a race. `step(dt)` advances the game without a browser frame. Also `net` (online state and helpers), `race`, `players`, `sel`, `tracks`, `cars`, `track()`, `checkTracks()`, `ai` (`skill`, `brake`), `reset`, `showMenu`, `loadModel(name)`, `simulate`.
 
 ## Controls
-1 player: WASD or arrow keys, Space handbrake, R or Enter back to track; player 2 is the computer. 2 players: P1 WASD, Space, R; P2 arrow keys, Right Shift, Enter. Esc or P: pause.
+1 player and online: WASD or arrow keys, Space handbrake, R or Enter back to track (in 1 player, player 2 is the computer; online, the other cars are other people). 2 players: P1 WASD, Space, R; P2 arrow keys, Right Shift, Enter. Esc or P: pause.

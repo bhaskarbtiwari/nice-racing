@@ -2,7 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>3D Racing</title>
     <!-- Inline SVG favicon to avoid 404 for favicon.ico -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23ffdd00'/%3E%3Ctext x='8' y='11' font-size='9' font-family='Arial' text-anchor='middle' fill='%23000'%3EL%3C/text%3E%3C/svg%3E">
@@ -15,7 +17,8 @@
     <div id="ui">
       <button id="menuBtn">Menu</button>
       <button id="resetBtn">Restart</button>
-      <span>Esc: pause</span>
+      <button id="fsBtn" title="Full screen" type="button">&#x26F6;</button>
+      <span class="hint">Esc: pause</span>
     </div>
     <div class="hud" id="hud1"></div>
     <div class="hud" id="hud2"></div>
@@ -25,18 +28,46 @@
       <div id="menuBox">
         <h2>3D Racing</h2>
         <div class="row"><span>Mode</span>
-          <div class="seg" id="modeSeg"><button data-v="1" class="on">1 Player</button><button data-v="2">2 Players</button></div>
+          <div class="seg" id="modeSeg"><button data-v="1" class="on">1 Player</button><button data-v="2">2 Players</button><button data-v="3">Online</button></div>
         </div>
         <div class="row"><span>Track</span><button id="trackBtn" class="pick" type="button"></button></div>
         <small id="trackInfo"></small>
         <div class="row"><span id="car1Label">Your car</span><select id="car1Select"></select></div>
         <div class="cstat" id="car1Stats"></div>
-        <div class="row"><span id="car2Label">Computer car</span><select id="car2Select"></select></div>
+        <div class="row" id="car2Row"><span id="car2Label">Computer car</span><select id="car2Select"></select></div>
         <div class="cstat" id="car2Stats"></div>
         <div class="row"><span>Laps</span><select id="lapsSelect"></select></div>
+        <div id="onlinePanel">
+          <div class="row"><span>Your name</span><input id="nameInput" maxlength="12" autocomplete="off" /></div>
+          <div id="roomSetup">
+            <div class="row"><button id="createRoomBtn" type="button">Create room</button></div>
+            <div class="row"><input id="roomInput" placeholder="ROOM CODE" maxlength="5" autocomplete="off" autocapitalize="characters" /><button id="joinRoomBtn" type="button">Join</button></div>
+          </div>
+          <div id="roomLive">
+            <div class="roomhead">Room <b id="roomCode"></b> <button id="leaveRoomBtn" class="linkbtn" type="button">Leave</button></div>
+            <div class="row"><input id="roomLink" readonly /><button id="copyLinkBtn" type="button">Copy link</button></div>
+            <ul id="roomPlayers"></ul>
+          </div>
+          <div id="roomStatus"></div>
+        </div>
         <button id="startBtn" disabled>Loading...</button>
-        <p class="keys">1 Player: W A S D or arrow keys<br>2 Players: Player 1 W A S D, Player 2 arrow keys<br>R / Enter: back on track &nbsp; Esc: pause</p>
+        <p class="keys">1 Player: W A S D or arrow keys<br>2 Players: Player 1 W A S D, Player 2 arrow keys<br>Online: W A S D or arrow keys, or the touch buttons on a phone<br>R / Enter: back on track &nbsp; Esc: pause</p>
         <button id="creditsBtn" class="linkbtn" type="button">Credits</button>
+      </div>
+    </div>
+    <div id="touch">
+      <div class="tpad tleft">
+        <button class="tbtn" data-k="left" type="button" aria-label="Steer left">&#9664;</button>
+        <button class="tbtn" data-k="right" type="button" aria-label="Steer right">&#9654;</button>
+      </div>
+      <div class="ttop">
+        <button class="tsmall" id="tPause" type="button" aria-label="Pause">&#10074;&#10074;</button>
+        <button class="tsmall" id="tReset" type="button" aria-label="Back on track">&#8635;</button>
+      </div>
+      <div class="tpad tright">
+        <button class="tbtn tsm" data-k="handbrake" type="button">HB</button>
+        <button class="tbtn tbrake" data-k="backward" type="button">BRAKE</button>
+        <button class="tbtn tgas" data-k="forward" type="button">GAS</button>
       </div>
     </div>
     <div id="credits">
@@ -80,6 +111,8 @@
       window.THREE = THREE;
       window.GLTFLoader = GLTFLoader;
     </script>
+    <!-- PeerJS: peer-to-peer connections for online races (its free public broker only introduces players to each other) -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script>document.write('<script src="main.js?v=' + Date.now() + '"><\/script>');</script>
   </body>
 </html>
