@@ -69,9 +69,45 @@
     GroundVehicle: { name: 'Ground Vehicle', file: 'models/GroundVehicle.glb', length: 5.0, plate: 'GRV-001' },
     Buggy: { name: 'Dune Buggy', file: 'models/Buggy.glb', length: 3.8, plate: 'BUG-508' },
     CesiumMilkTruck: { name: 'Milk Truck', file: 'models/CesiumMilkTruck.glb', length: 5.2, plate: 'CMT-314' },
+    McLarenF1LM: { name: 'McLaren F1 LM', file: 'models/McLarenF1LM.glb', length: 4.4, plate: 'F1-LM' },
+    Porsche911: { name: 'Porsche 911 Turbo (1975)', file: 'models/Porsche911Turbo.glb', length: 4.3, plate: 'P-930' },
+    Mercedes300SL: { name: 'Mercedes 300 SL Gullwing', file: 'models/Mercedes300SL.glb', length: 4.5, plate: '300-SL' },
+    McLarenMCL35M: { name: 'McLaren F1 car (2021)', file: 'models/McLarenMCL35M.glb', length: 5.4, plate: 'MCL-35' },
     primitive: { name: 'Classic Lambo (built-in)', file: null, length: 4.2, plate: 'LMB-001' }
   };
   const DEFAULT_CAR = 'GTR_R35';
+
+  // Driving stats per car. top: km/h, accel and brake: m/s^2, lock: steering lock at top speed in radians (bigger turns tighter),
+  // response: how quickly the wheels follow the keys, grass: share of top speed kept off the tarmac. The faster, more
+  // expensive cars are better at everything; trucks and the buggy are slow but the buggy copes with grass.
+  const CAR_STATS = {
+    McLarenMCL35M:   { top: 310, accel: 36, brake: 62, lock: 0.115, response: 9.0, grass: 0.35 },
+    McLarenF1LM:     { top: 290, accel: 31, brake: 54, lock: 0.105, response: 8.5, grass: 0.38 },
+    GTR_R35:         { top: 270, accel: 28, brake: 50, lock: 0.100, response: 8.0, grass: 0.40 },
+    FutureRacer:     { top: 265, accel: 28, brake: 48, lock: 0.100, response: 8.0, grass: 0.40 },
+    CarConcept:      { top: 260, accel: 27, brake: 48, lock: 0.100, response: 8.0, grass: 0.40 },
+    primitive:       { top: 250, accel: 24, brake: 44, lock: 0.095, response: 7.5, grass: 0.40 },
+    Porsche911:      { top: 240, accel: 22, brake: 42, lock: 0.090, response: 7.0, grass: 0.40 },
+    Mercedes300SL:   { top: 225, accel: 19, brake: 38, lock: 0.085, response: 6.5, grass: 0.40 },
+    SportsSedan:     { top: 215, accel: 19, brake: 40, lock: 0.085, response: 6.5, grass: 0.42 },
+    PoliceCar:       { top: 215, accel: 20, brake: 40, lock: 0.085, response: 6.5, grass: 0.42 },
+    SportsHatch:     { top: 200, accel: 18, brake: 38, lock: 0.090, response: 7.0, grass: 0.42 },
+    RacerRed:        { top: 195, accel: 18, brake: 36, lock: 0.090, response: 7.0, grass: 0.42 },
+    RacerPurple:     { top: 190, accel: 17.5, brake: 36, lock: 0.090, response: 7.0, grass: 0.42 },
+    RacerYellow:     { top: 185, accel: 17, brake: 36, lock: 0.090, response: 7.0, grass: 0.42 },
+    RacerGreen:      { top: 180, accel: 16.5, brake: 36, lock: 0.090, response: 7.0, grass: 0.42 },
+    LuxurySUV:       { top: 185, accel: 16, brake: 34, lock: 0.075, response: 5.5, grass: 0.50 },
+    Buggy:           { top: 165, accel: 17, brake: 34, lock: 0.090, response: 7.5, grass: 0.75 },
+    MiniCar:         { top: 150, accel: 15, brake: 32, lock: 0.100, response: 8.0, grass: 0.50 },
+    GroundVehicle:   { top: 130, accel: 12, brake: 30, lock: 0.060, response: 4.5, grass: 0.55 },
+    CesiumMilkTruck: { top: 120, accel: 10, brake: 28, lock: 0.055, response: 4.5, grass: 0.50 }
+  };
+  const statsFor = id => CAR_STATS[id] || CAR_STATS[DEFAULT_CAR];
+  function applyCarStats(state, id) {
+    const c = statsFor(id);
+    state.baseMaxSpeed = state.maxSpeed = c.top / 3.6;
+    state.accel = c.accel; state.brake = c.brake; state.lockMin = c.lock; state.response = c.response; state.grassFactor = c.grass;
+  }
 
   // ---------------------------------------------------------------------------
   // Game state
@@ -113,7 +149,7 @@
 
   // current track
   let currentTrack = null, trackGroup = null, trackHalfWidth = 8, trackLength = 0, trackDs = 3;
-  let trackPts = [], trackTan = [], trackVmax = [];
+  let trackPts = [], trackTan = [], trackVmax = [], trackKappa = [];
   const nSamples = () => trackPts.length;
   // solid scenery for the current track: circles { x, z, r } (trees, rocks, pillars) and boxes { x, z, hx, hz } (buildings)
   let obstacles = [];
@@ -184,11 +220,11 @@
   }
 
   // speed at which the steering lock still lets the car follow a bend of the given radius
-  function vFromRadius(r) {
+  function vFromRadius(r, st = carState) {
     const lock = Math.atan(WHEELBASE / r);
-    const pace = (LOCK_MAX - lock) / (LOCK_MAX - LOCK_MIN);
-    if (pace >= 1) return carState.baseMaxSpeed * 2; // a bend this gentle never limits the car
-    return Math.max(14, Math.max(0, pace) * carState.baseMaxSpeed * 0.72);
+    const pace = (LOCK_MAX - lock) / (LOCK_MAX - (st.lockMin ?? LOCK_MIN));
+    if (pace >= 1) return st.baseMaxSpeed * 2; // a bend this gentle never limits the car
+    return Math.max(14, Math.max(0, pace) * st.baseMaxSpeed * 0.72);
   }
 
   // sample a track definition into evenly spaced points, tangents and per-point corner speeds
@@ -306,7 +342,7 @@
     trackGroup = new THREE.Group(); scene.add(trackGroup);
     obstacles = [];
     const s = samplePath(def);
-    trackPts = s.pts; trackTan = s.tan; trackVmax = s.vmax; trackLength = s.length; trackDs = s.ds; trackHalfWidth = def.halfWidth;
+    trackPts = s.pts; trackTan = s.tan; trackVmax = s.vmax; trackKappa = s.kappa; trackLength = s.length; trackDs = s.ds; trackHalfWidth = def.halfWidth;
     currentTrack = key;
     const theme = THEMES[def.theme]; applyTheme(theme);
     const hw = def.halfWidth;
@@ -373,13 +409,13 @@
       return new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
     }
     const geo = new THREE.BoxGeometry(width, height, 0.04);
-    const f = new THREE.Mesh(geo, plate(front.replace(/-/g, ''), front)); f.position.set(0, y, length / 2 + 0.03); parent.add(f);
-    const r = new THREE.Mesh(geo.clone(), plate(rear.replace(/-/g, ''), rear)); r.position.set(0, y, -length / 2 - 0.03); parent.add(r);
+    const f = new THREE.Mesh(geo, plate(front.replace(/-/g, ''), front)); f.position.set(0, y, length / 2 + 0.03); f.userData.owned = true; parent.add(f);
+    const r = new THREE.Mesh(geo.clone(), plate(rear.replace(/-/g, ''), rear)); r.position.set(0, y, -length / 2 - 0.03); r.userData.owned = true; parent.add(r);
   }
 
   function addGlow(root, player) {
     const disc = new THREE.Mesh(new THREE.CircleGeometry(2.6, 32), new THREE.MeshBasicMaterial({ color: player.color, transparent: true, opacity: 0.5, depthWrite: false }));
-    disc.rotation.x = -Math.PI / 2; disc.position.y = 0.05; root.add(disc);
+    disc.rotation.x = -Math.PI / 2; disc.position.y = 0.05; disc.userData.owned = true; root.add(disc);
   }
 
   // built-in low-poly car, used as a choice and as a fallback when a model fails to load
@@ -410,17 +446,18 @@
       wheels.push({ spin, steer: wz > 0 ? steer : null, r: 0.35 });
     }
     car.userData.rearLights = [rearL, rearR];
+    car.userData.ownedAll = true; // every part of the built-in car is created fresh for it
     return { root: car, wheels };
   }
 
   // Turn a loaded glTF scene into a car 'length' metres long: long axis along +Z, wheels on the ground, centred.
   function normalizeModel(scn, cfg) {
     scn.updateMatrixWorld(true);
-    const all = new THREE.Box3().setFromObject(scn), sz = all.getSize(new THREE.Vector3());
+    const all = new THREE.Box3().setFromObject(scn, true), sz = all.getSize(new THREE.Vector3());
     const flat = [];
     scn.traverse(o => { // drop ground patches that some models ship with
       if (!o.isMesh) return;
-      const s = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3());
+      const s = new THREE.Box3().setFromObject(o, true).getSize(new THREE.Vector3());
       if (s.y < 0.02 * Math.max(s.x, s.z) && s.x * s.z > 0.8 * sz.x * sz.z) flat.push(o);
     });
     flat.forEach(o => o.removeFromParent());
@@ -437,14 +474,14 @@
     const pivot = new THREE.Group(); pivot.add(scn);
     const root = new THREE.Group(); root.add(pivot);
     root.updateMatrixWorld(true);
-    let size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
+    let size = new THREE.Box3().setFromObject(root, true).getSize(new THREE.Vector3());
     if (size.x > size.z) pivot.rotation.y = Math.PI / 2;
     if (cfg.flip) pivot.rotation.y += Math.PI;
     root.updateMatrixWorld(true);
-    size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
+    size = new THREE.Box3().setFromObject(root, true).getSize(new THREE.Vector3());
     pivot.scale.setScalar(cfg.length / size.z);
     root.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(root), c = box.getCenter(new THREE.Vector3());
+    const box = new THREE.Box3().setFromObject(root, true), c = box.getCenter(new THREE.Vector3());
     pivot.position.set(-c.x, -box.min.y + 0.02, -c.z);
     return root;
   }
@@ -461,10 +498,12 @@
     });
     const clusters = [];
     parts.forEach(o => {
-      const b = new THREE.Box3().setFromObject(o), c = b.getCenter(new THREE.Vector3());
+      const b = new THREE.Box3().setFromObject(o, true), c = b.getCenter(new THREE.Vector3());
       const hit = clusters.find(k => k.center.distanceTo(c) < 0.45);
       if (hit) { hit.parts.push(o); hit.box.union(b); hit.center = hit.box.getCenter(new THREE.Vector3()); } else clusters.push({ parts: [o], box: b, center: c });
     });
+    // a single mesh that holds all four wheels (some detailed models) cannot be spun or steered; leave those rigid
+    for (let i = clusters.length - 1; i >= 0; i--) { const sz = clusters[i].box.getSize(new THREE.Vector3()); if (sz.z > 1.8 || sz.y > 1.8) clusters.splice(i, 1); }
     if (!clusters.length) return [];
     const zs = clusters.map(k => k.center.z), mid = (Math.max(...zs) + Math.min(...zs)) / 2;
     return clusters.map(k => {
@@ -516,14 +555,25 @@
     return { obj: outer, wheels };
   }
 
+  // free what a removed car owned (its plates, glow disc and, for the built-in car, everything) so choosing cars again
+  // and again in the menu does not pile up graphics memory; the cached model shared by all clones is kept
+  function disposeCar(obj) {
+    const all = !!(obj.children[0] && obj.children[0].userData.ownedAll);
+    obj.traverse(o => {
+      if (!o.isMesh || !(all || o.userData.owned)) return;
+      if (o.geometry) o.geometry.dispose();
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (!m) return; if (m.map) m.map.dispose(); m.dispose(); });
+    });
+  }
+
   let carToken = 0, currentCars = [null, null];
   async function setCars(ids) {
     const token = ++carToken;
     const cars = await Promise.all(ids.map((id, i) => makeCar(id, i)));
     if (token !== carToken) return;
     players.forEach((p, i) => {
-      if (p.car) scene.remove(p.car.obj);
-      p.car = cars[i]; scene.add(cars[i].obj); placeOnGrid(cars[i].obj, i);
+      if (p.car) { scene.remove(p.car.obj); disposeCar(p.car.obj); }
+      p.car = cars[i]; scene.add(cars[i].obj); placeOnGrid(cars[i].obj, i); applyCarStats(p.state, ids[i]);
       p.state.speed = 0; p.state.steering = 0;
     });
     currentCars = ids.slice();
@@ -544,7 +594,9 @@
     const m = KEYMAP[e.code];
     if (m) { if (race.phase === 'menu') return; e.preventDefault(); keyTarget(m)[m[1]] = true; return; }
     if (e.repeat) return;
-    if (e.code === 'Escape' && pickerOpen()) { e.preventDefault(); togglePicker(false); }
+    const cr = document.getElementById('credits');
+    if (e.code === 'Escape' && cr && cr.style.display === 'flex') { e.preventDefault(); cr.style.display = 'none'; }
+    else if (e.code === 'Escape' && pickerOpen()) { e.preventDefault(); togglePicker(false); }
     else if (e.code === 'Escape' || e.code === 'KeyP') { e.preventDefault(); togglePause(); }
     else if (e.code === 'KeyR') respawn(players[0]);
     else if (e.code === 'Enter') { if (race.phase !== 'menu') { e.preventDefault(); respawn(players[mode === 1 ? 0 : 1]); } }
@@ -604,7 +656,7 @@
     const info = trackInfo(obj.position);
     player.info = info;
     state.onTrack = info.onTrack;
-    state.maxSpeed = info.onTrack ? state.baseMaxSpeed : state.baseMaxSpeed * GRASS_SPEED_FACTOR;
+    state.maxSpeed = info.onTrack ? state.baseMaxSpeed : state.baseMaxSpeed * (state.grassFactor ?? GRASS_SPEED_FACTOR);
 
     // throttle, brake, coast
     if (ctl.forward) state.speed += (state.speed < 0 ? state.brake : state.accel) * dt;
@@ -614,14 +666,14 @@
 
     // above the surface's top speed (e.g. running onto grass): bleed speed off instead of snapping
     const over = Math.abs(state.speed) - state.maxSpeed;
-    if (over > 0) state.speed -= Math.sign(state.speed) * Math.min(over, 30 * dt);
+    if (over > 0) state.speed -= Math.sign(state.speed) * Math.min(over, Math.max(30, state.accel + 12) * dt);
     state.speed = Math.max(-state.baseMaxSpeed * 0.3, state.speed);
 
     // steering lock shrinks with speed so the car stays controllable at pace
     const steerInput = typeof ctl.steer === 'number' ? ctl.steer : (ctl.left ? 1 : 0) - (ctl.right ? 1 : 0); // keys are -1/0/1, the computer driver is smooth
     const pace = Math.min(1, Math.abs(state.speed) / state.baseMaxSpeed);
-    const lock = LOCK_MAX + (LOCK_MIN - LOCK_MAX) * pace;
-    state.steering += (steerInput * lock - state.steering) * Math.min(1, 6 * dt);
+    const lock = LOCK_MAX + ((state.lockMin ?? LOCK_MIN) - LOCK_MAX) * pace;
+    state.steering += (steerInput * lock - state.steering) * Math.min(1, (state.response ?? 6) * dt);
     obj.rotation.y += state.speed * Math.tan(state.steering) / WHEELBASE * dt;
 
     // move
@@ -730,11 +782,12 @@
     ctl.steer = Math.max(-1, Math.min(1, -cross * AI.steerGain)); ctl.handbrake = false;
 
     // speed we can carry now and still make every bend inside braking distance
-    const reach = Math.ceil((sp * sp / (2 * AI.brake) + 14) / trackDs);
+    const brk = Math.min(AI.brake, st.brake * 0.6);
+    const reach = Math.ceil((sp * sp / (2 * brk) + 14) / trackDs);
     let target = st.baseMaxSpeed;
     for (let k = 0; k <= reach; k += 2) {
-      const v = trackVmax[(info.index + k) % n];
-      target = Math.min(target, Math.sqrt(v * v + 2 * AI.brake * k * trackDs));
+      const v = vFromRadius(1 / trackKappa[(info.index + k) % n], st);
+      target = Math.min(target, Math.sqrt(v * v + 2 * brk * k * trackDs));
     }
     target *= AI.skill;
     ctl.forward = sp < target; ctl.backward = sp > target + 3;
@@ -925,7 +978,20 @@
     return applyChain;
   }
 
+  // small stat bars under each car choice; the best car in each row fills the bar
+  function renderCarStats() {
+    const best = { top: 310, accel: 36, handling: 1 };
+    const handling = c => Math.min(1, (c.lock / 0.115) * 0.6 + (c.response / 9) * 0.4);
+    [['car1Stats', sel.car1], ['car2Stats', sel.car2]].forEach(([id, car]) => {
+      const el = document.getElementById(id); if (!el) return;
+      const c = statsFor(car), bar = (label, v) => '<div class="bar"><span>' + label + '</span><u><i style="width:' + Math.round(Math.min(1, v) * 100) + '%"></i></u></div>';
+      el.innerHTML = '<div class="top"><span>' + CARS[car].name + '</span><b>' + c.top + ' km/h</b></div>' +
+        bar('Top speed', c.top / best.top) + bar('Acceleration', c.accel / best.accel) + bar('Handling', handling(c) / best.handling);
+    });
+  }
+
   function refreshMenuLabels() {
+    renderCarStats();
     const $ = id => document.getElementById(id);
     if ($('car1Label')) $('car1Label').textContent = sel.mode === 1 ? 'Your car' : 'Player 1 car';
     if ($('car2Label')) $('car2Label').textContent = sel.mode === 1 ? 'Computer car' : 'Player 2 car';
@@ -981,6 +1047,25 @@
     }
   }
 
+  // credits screen: reads models/CREDITS.md so the list only has to be kept in one place
+  function showCredits() {
+    const box = document.getElementById('credits'), body = document.getElementById('creditsBody');
+    box.style.display = 'flex';
+    fetch('models/CREDITS.md', { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject(r.status)).then(text => {
+      const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      const items = [], notes = [];
+      text.split(/\r?\n/).forEach(line => {
+        if (/^\|\s*-/.test(line) || /^\|\s*File\s*\|/i.test(line)) return;
+        if (line.startsWith('|')) {
+          const c = line.split('|').slice(1, -1).map(x => x.trim().replace(/`/g, ''));
+          if (c.length >= 3) items.push('<li><b>' + esc(c[0]) + '</b><small>' + esc(c[1]) + ' (' + esc(c[2]) + ')</small></li>');
+        } else if (line.trim() && !line.startsWith('#')) notes.push('<p>' + esc(line.replace(/`/g, '')) + '</p>');
+      });
+      body.innerHTML = '<ul style="padding-left:18px;margin:0">' + items.join('') + '</ul>' + notes.join('') +
+        '<p>Three.js (MIT licence) is loaded from unpkg.</p>';
+    }).catch(() => { body.textContent = 'The credits list could not be loaded.'; });
+  }
+
   function initMenu() {
     const $ = id => document.getElementById(id);
     const fill = (id, entries, value) => {
@@ -994,8 +1079,8 @@
     fill('lapsSelect', [[1, '1 lap'], [3, '3 laps'], [5, '5 laps']], sel.laps);
     const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
     document.querySelectorAll('#modeSeg button').forEach(b => b.addEventListener('click', () => { sel.mode = Number(b.dataset.v); refreshMenuLabels(); b.blur(); }));
-    on('car1Select', 'change', e => { sel.car1 = e.target.value; applySelection(); e.target.blur(); });
-    on('car2Select', 'change', e => { sel.car2 = e.target.value; applySelection(); e.target.blur(); });
+    on('car1Select', 'change', e => { sel.car1 = e.target.value; renderCarStats(); applySelection(); e.target.blur(); });
+    on('car2Select', 'change', e => { sel.car2 = e.target.value; renderCarStats(); applySelection(); e.target.blur(); });
     on('lapsSelect', 'change', e => { sel.laps = Number(e.target.value); e.target.blur(); });
     const click = (id, fn) => on(id, 'click', e => { e.currentTarget.blur(); fn(); });
     click('startBtn', () => { if (!loading) startRace(); });
@@ -1003,6 +1088,7 @@
     click('restartBtn', startRace); click('resumeBtn', togglePause);
     click('menuBtn', showMenu); click('menuBtn2', showMenu);
     click('trackBtn', () => togglePicker(true)); click('pickerBack', () => togglePicker(false));
+    click('creditsBtn', showCredits); click('creditsClose', () => { document.getElementById('credits').style.display = 'none'; });
     refreshMenuLabels();
   }
 

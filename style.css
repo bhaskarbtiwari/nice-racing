@@ -69,3 +69,23 @@ body.one-player #hud2{display:none}
 #pickerBack{margin-top:18px;padding:10px 26px;font-size:15px;border:0;border-radius:6px;background:#ffd24a;color:#111;cursor:pointer}
 
 body.in-menu #canvas-container:after{display:none}
+
+/* car stat bars in the menu */
+.cstat{margin:-4px 0 8px;padding:6px 8px;border-radius:6px;background:rgba(255,255,255,.05);font-size:11px;color:#aab1be}
+.cstat .top{display:flex;justify-content:space-between;margin-bottom:3px}
+.cstat .top b{color:#fff}
+.cstat .bar{display:flex;align-items:center;gap:6px;margin-top:2px}
+.cstat .bar span{width:68px}
+.cstat .bar i{display:block;height:5px;border-radius:3px;background:#ffd24a}
+.cstat .bar u{flex:1;height:5px;border-radius:3px;background:#2a303d;text-decoration:none;overflow:hidden}
+
+/* credits */
+#menuBox .linkbtn{display:block;margin:8px 0 0;padding:0;background:none;color:#ffd24a;font-size:12px;text-decoration:underline;border:0;cursor:pointer}
+#credits{position:absolute;inset:0;z-index:45;display:none;align-items:center;justify-content:center;background:rgba(6,9,15,.88)}
+#creditsBox{width:min(760px,94vw);max-height:90vh;overflow:auto;padding:22px 26px;border-radius:12px;background:#1c1f26;color:#fff}
+#creditsBox h2{margin:0 0 12px;font-size:24px}
+#creditsBody{font-size:13px;line-height:1.55;color:#cfd3da}
+#creditsBody li{margin:0 0 8px}
+#creditsBody b{color:#fff}
+#creditsBody small{display:block;color:#8e96a5}
+#creditsClose{margin-top:14px;padding:9px 24px;font-size:14px;border:0;border-radius:6px;background:#ffd24a;color:#111;cursor:pointer}

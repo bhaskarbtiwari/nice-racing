@@ -4,9 +4,9 @@ Three.js racing game: 1 player vs a computer driver, or 2 players on a split scr
 
 ## Files
 - `index.html`: start menu, HUD containers, import map (three@0.158.0 from unpkg)
-- `main.js`: all game code, one IIFE. Data tables at the top: `THEMES`, `TRACKS`, `CARS`. Exposes `window._CAR_DEMO`
+- `main.js`: all game code, one IIFE. Data tables at the top: `THEMES`, `TRACKS`, `CARS`, `CAR_STATS` (top speed, acceleration, braking, steering lock and response, grass grip per car; the menu shows them as bars and the computer driver uses its own car's values). Exposes `window._CAR_DEMO`
 - `style.css`: menu, HUD and overlay styles
-- `models/*.glb`: car models (credits in `models/CREDITS.md`). To add a car: drop the file in `models/` and add a row to `CARS` (`flip: true` if it faces backwards). Wheels are found by node name (anything with "wheel", "rim", "tyre" or "tire"): they spin, and the front ones steer. Models without named wheels (the Dune Buggy) keep rigid wheels. `steerWheels: false` on a `CARS` row keeps its front wheels straight (used for the Concept Car). Open the page as `?wheels=static`, `?wheels=nospin` or `?wheels=nosteer` to isolate a wheel problem. Keep each under ~150k triangles, since both cars render in both views
+- `models/*.glb`: car models (credits in `models/CREDITS.md`). To add a car: drop the file in `models/` and add a row to `CARS` (`flip: true` if it faces backwards). Wheels are found by node name (anything with "wheel", "rim", "tyre" or "tire"): they spin, and the front ones steer. Models without separate named wheels (the Dune Buggy and the detailed Porsche, McLaren and Mercedes cars) keep rigid wheels. `steerWheels: false` on a `CARS` row keeps its front wheels straight (used for the Concept Car). Open the page as `?wheels=static`, `?wheels=nospin` or `?wheels=nosteer` to isolate a wheel problem. Keep each under ~150k triangles, since both cars render in both views
 - `tests/*.js`: Puppeteer scripts
 - `agents/`: unrelated checkout, ignore
 
@@ -15,6 +15,7 @@ Six tracks. A track is a closed curve through `points` ([x, z] metres) plus `hal
 
 ## Commands
 - Run: `python serve.py` (a no-cache server for this folder), then open http://localhost:8000. index.html adds a timestamp to `main.js` and `style.css`, so a normal reload always loads the latest code even with a plain `http.server`
+- Host: `.gitlab-ci.yml` publishes `index.html`, `main.js`, `style.css` and `models/` to GitLab Pages on every push to the default branch. The menu's Credits button reads `models/CREDITS.md`, so keep that file current
 - Test: start Chrome with `--remote-debugging-port=9222`, then `node tests/simulate.js` or `node tests/test_gtr.js`
 
 ## Console API (`window._CAR_DEMO`)
