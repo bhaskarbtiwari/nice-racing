@@ -61,9 +61,12 @@
         <button class="tbtn" data-k="right" type="button" aria-label="Steer right">&#9654;</button>
       </div>
       <div class="ttop">
+        <button class="tsmall" id="tTilt" type="button" aria-label="Steer by tilting the phone">TILT</button>
+        <button class="tsmall" id="tCenter" type="button" aria-label="Set the straight-ahead position">&#9678;</button>
         <button class="tsmall" id="tPause" type="button" aria-label="Pause">&#10074;&#10074;</button>
         <button class="tsmall" id="tReset" type="button" aria-label="Back on track">&#8635;</button>
       </div>
+      <div id="tiltGauge"><i id="tiltDot"></i></div>
       <div class="tpad tright">
         <button class="tbtn tsm" data-k="handbrake" type="button">HB</button>
         <button class="tbtn tbrake" data-k="backward" type="button">BRAKE</button>
@@ -93,6 +96,7 @@
         <button id="menuBtn2">Menu</button>
       </div>
     </div>
+    <div id="toast"></div>
     <div id="canvas-container"></div>
 
     <!-- Import map to resolve bare specifier 'three' used by JSM examples -> points to unpkg module build -->

@@ -23,6 +23,7 @@ Six tracks. A track is a closed curve through `points` ([x, z] metres) plus `hal
 - Race start is two-step: the host sends `start`, everyone loads the track and cars and sends `ready`, then the host sends `go` (the `race.hold` flag keeps the countdown frozen until then)
 - To test with two tabs, drive each with `_CAR_DEMO.step(dt)` plus `_CAR_DEMO.net.tick()` and `.updateRemotes(dt)`, and yield with `MessageChannel` (background tabs throttle timers)
 - Touch buttons (`#touch`, shown on touch devices or with `?touch=1`) set the same `controls` as the keyboard
+- Tilt steering: the TILT button turns the phone into a steering wheel (`tilt`, `tiltDegrees`, `applyTilt` in `main.js`). It reads `deviceorientation`, needs https and, on iPhones, a motion permission asked from the tap. Whatever position the phone is in when a race starts counts as straight ahead (the ◎ button resets it). It sets `controls.steer` (analog, positive = left). Test with `_CAR_DEMO.touch` and synthetic `DeviceOrientationEvent`s
 
 ## Console API (`window._CAR_DEMO`)
 `start({mode, track, car1, car2, laps})` applies choices and starts a race. `step(dt)` advances the game without a browser frame. Also `net` (online state and helpers), `race`, `players`, `sel`, `tracks`, `cars`, `track()`, `checkTracks()`, `ai` (`skill`, `brake`), `reset`, `showMenu`, `loadModel(name)`, `simulate`.

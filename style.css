@@ -142,3 +142,15 @@ html,body{overscroll-behavior:none}
   .hud .place{font-size:26px}
   #countdown{font-size:80px}
 }
+
+/* ---- tilt steering ---- */
+#tTilt{width:56px;font-size:12px}
+#tCenter{display:none}
+body.tilt #tCenter{display:inline-block}
+body.tilt .tleft{visibility:hidden}
+#tiltGauge{display:none;position:absolute;bottom:calc(22px + env(safe-area-inset-bottom));left:50%;width:min(32vw,200px);height:10px;transform:translateX(-50%);border-radius:5px;background:rgba(20,24,33,.55);border:1px solid rgba(255,255,255,.5)}
+#tiltGauge::before{content:"";position:absolute;left:50%;top:-3px;width:2px;height:14px;background:rgba(255,255,255,.7)}
+body.tilt #tiltGauge{display:block}
+#tiltDot{position:absolute;top:-4px;left:50%;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:#ffd24a}
+#toast{display:none;position:absolute;left:50%;bottom:28%;transform:translateX(-50%);z-index:60;max-width:80vw;padding:8px 14px;border-radius:8px;background:rgba(0,0,0,.82);color:#fff;font-size:14px;text-align:center;pointer-events:none}
+body.touch #ui{left:8px;transform:none}

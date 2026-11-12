@@ -831,7 +831,7 @@
     laps = sel.laps; mode = sel.mode;
     syncModeClasses();
     resetPlayers();
-    race.countdown = 3; race.time = 0; race.paused = false; race.hold = false;
+    race.countdown = 3; race.time = 0; race.paused = false; race.hold = false; tilt.zero = null;
     setPhase('countdown');
     activePlayers().forEach(p => { if (p.car && p.camera) updateCamera(p, 1); });
     showOverlay(null);
@@ -1500,6 +1500,75 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Tilt steering: turn the phone like a steering wheel
+  // ---------------------------------------------------------------------------
+  const tilt = { on: false, angle: null, zero: null, steer: 0, gotEvent: false };
+  let toastTimer = null;
+  function toast(text) {
+    const el = byId('toast'); if (!el) return;
+    el.textContent = text; el.style.display = 'block';
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3200);
+  }
+
+  // How far the phone is turned clockwise, in degrees (positive = steer right), from the sensor's beta and gamma angles.
+  // The direction of "up" is worked out in the phone's own frame, then read off in screen terms for the current rotation of
+  // the screen, so it works in portrait and landscape, and when the phone is held upright where the angles themselves jump.
+  function tiltDegrees(beta, gamma, screenAngle) {
+    const b = beta * Math.PI / 180, g = gamma * Math.PI / 180;
+    const ux = -Math.sin(g) * Math.cos(b), uy = Math.sin(b);
+    let sx, sy; // up, as seen on the screen: sx to the right, sy upward
+    switch (((Math.round(screenAngle) % 360) + 360) % 360) {
+      case 90: sx = -uy; sy = ux; break;
+      case 180: sx = -ux; sy = -uy; break;
+      case 270: sx = uy; sy = -ux; break;
+      default: sx = ux; sy = uy;
+    }
+    if (Math.hypot(sx, sy) < 0.25) return null; // lying nearly flat: no usable tilt
+    return Math.atan2(-sx, sy) * 180 / Math.PI;
+  }
+
+  function onTilt(e) {
+    if (e.beta == null || e.gamma == null) return;
+    tilt.gotEvent = true;
+    const rot = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 0);
+    const a = tiltDegrees(e.beta, e.gamma, rot);
+    tilt.angle = a;
+    if (a !== null && tilt.zero === null) tilt.zero = a; // however the phone is held when it starts counts as straight ahead
+  }
+
+  function setTilt(on) {
+    tilt.on = on; tilt.zero = null; tilt.steer = 0; tilt.angle = null; tilt.gotEvent = false;
+    document.body.classList.toggle('tilt', on);
+    const b = byId('tTilt'); if (b) b.classList.toggle('down', on);
+    window.removeEventListener('deviceorientation', onTilt);
+    if (!on) { delete controls.steer; return; }
+    window.addEventListener('deviceorientation', onTilt);
+    setTimeout(() => { if (tilt.on && !tilt.gotEvent) { toast('No motion sensor found on this device.'); setTilt(false); } }, 2500);
+  }
+
+  // has to run from a tap: iPhones ask for permission before they share motion data
+  function toggleTilt() {
+    if (tilt.on) { setTilt(false); return; }
+    const DOE = window.DeviceOrientationEvent;
+    if (DOE && typeof DOE.requestPermission === 'function') {
+      DOE.requestPermission().then(r => { if (r === 'granted') { setTilt(true); toast('Tilt on: hold the phone how you like, it counts as straight.'); } else toast('Motion access was refused. Allow it in the browser settings to steer by tilting.'); })
+        .catch(() => toast('Could not ask for motion access (it needs https).'));
+    } else { setTilt(true); toast('Tilt on: hold the phone how you like, it counts as straight.'); }
+  }
+
+  // each frame: turn the tilt into steering (a small dead zone, full lock at about 28 degrees)
+  function applyTilt() {
+    if (!tilt.on) return;
+    if (tilt.angle === null || tilt.zero === null) tilt.steer = 0;
+    else {
+      let d = tilt.angle - tilt.zero; d = ((d + 540) % 360) - 180;
+      tilt.steer = Math.sign(d) * Math.max(0, Math.min(1, (Math.abs(d) - 3) / 25));
+    }
+    controls.steer = -tilt.steer; // the game counts steering left as positive
+    const dot = byId('tiltDot'); if (dot) dot.style.left = (50 + 50 * tilt.steer) + '%';
+  }
+
+  // ---------------------------------------------------------------------------
   // Touch controls (phones and tablets)
   // ---------------------------------------------------------------------------
   function initTouch() {
@@ -1514,6 +1583,8 @@
     });
     const tap = (id, fn) => { const el = byId(id); if (el) el.addEventListener('pointerdown', e => { e.preventDefault(); fn(); }); };
     tap('tPause', togglePause);
+    tap('tTilt', toggleTilt);
+    tap('tCenter', () => { if (tilt.angle !== null) { tilt.zero = tilt.angle; toast('Straight ahead set.'); } });
     tap('tReset', () => respawn(players[0]));
     const fs = byId('fsBtn');
     if (fs) fs.addEventListener('click', () => {
@@ -1664,7 +1735,7 @@
   function animate() {
     requestAnimationFrame(animate);
     const dt = Math.min(0.05, clock.getDelta());
-    try { step(dt); if (mode === 3) updateRemotes(dt); updateHud(); drawMinimap(); } catch (e) { console.error(e); }
+    try { applyTilt(); step(dt); if (mode === 3) updateRemotes(dt); updateHud(); drawMinimap(); } catch (e) { console.error(e); }
     renderSplitScreen();
   }
 
@@ -1673,7 +1744,7 @@
   // export API
   Object.assign(window._CAR_DEMO, {
     update: updateCar, state: carState, reset: resetCar, step, race, players, ai: AI, tracks: TRACKS, cars: CARS, sel,
-    start, checkTracks, showMenu, obstacles: () => obstacles,
+    start, checkTracks, showMenu, obstacles: () => obstacles, touch: { tilt, tiltDegrees, toggleTilt, setTilt, applyTilt },
     net: { NET, remotes, createRoom, joinRoom, leaveRoom, hostStartRace, tick: () => netTick(), updateRemotes: dt => updateRemotes(dt) },
     track: () => ({ points: trackPts, tangents: trackTan, halfWidth: trackHalfWidth, laps, vmax: trackVmax, ds: trackDs }),
     setMode: m => { sel.mode = m; refreshMenuLabels(); startRace(); },
